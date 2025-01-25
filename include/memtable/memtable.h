@@ -9,7 +9,11 @@
 #include <string>
 #include <unordered_map>
 
+class MemTableIterator;
+
 class MemTable {
+  friend class MemTableIterator;
+
 public:
   MemTable();
   ~MemTable();
@@ -23,6 +27,8 @@ public:
   size_t get_cur_size() const;
   size_t get_frozen_size() const;
   size_t get_total_size() const;
+  MemTableIterator begin() const;
+  MemTableIterator end() const;
 
 private:
   std::shared_ptr<SkipList> current_table;

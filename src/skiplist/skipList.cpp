@@ -1,33 +1,38 @@
 #include "../../include/skiplist/skiplist.h"
 
-std::pair<std::string, std::string> Iterator::operator*() const {
+std::pair<std::string, std::string> SkipListIterator::operator*() const {
   return {current->key, current->value};
 }
 
-Iterator &Iterator::operator++() {
+SkipListIterator &SkipListIterator::operator++() {
   if (current) {
     current = current->forward[0];
   }
   return *this;
 }
 
-Iterator Iterator::operator++(int) {
-  Iterator temp = *this;
+SkipListIterator SkipListIterator::operator++(int) {
+  SkipListIterator temp = *this;
   ++(*this);
   return temp;
 }
 
-bool Iterator::operator==(const Iterator &other) const {
+bool SkipListIterator::operator==(const SkipListIterator &other) const {
   return current == other.current;
 }
 
-bool Iterator::operator!=(const Iterator &other) const {
+bool SkipListIterator::operator!=(const SkipListIterator &other) const {
   return !(*this == other);
 }
 
+std::string SkipListIterator::get_key() const { return current->key; }
+std::string SkipListIterator::get_value() const { return current->value; }
+
+bool SkipListIterator::is_valid() const { return !current->value.empty(); }
+
 // 构造函数
 SkipList::SkipList(int max_lvl) : max_level(max_lvl), current_level(1) {
-  head = std::make_shared<Node>("", "", max_level);
+  head = std::make_shared<SkipListNode>("", "", max_level);
 }
 
 int SkipList::random_level() {
@@ -47,7 +52,7 @@ int SkipList::random_level() {
 
 // 插入或更新键值对
 void SkipList::put(const std::string &key, const std::string &value) {
-  std::vector<std::shared_ptr<Node>> update(max_level, nullptr);
+  std::vector<std::shared_ptr<SkipListNode>> update(max_level, nullptr);
   auto current = head;
 
   // 从最高层开始查找插入位置
@@ -77,7 +82,7 @@ void SkipList::put(const std::string &key, const std::string &value) {
     current_level = new_level;
   }
 
-  auto new_node = std::make_shared<Node>(key, value, new_level);
+  auto new_node = std::make_shared<SkipListNode>(key, value, new_level);
   size_bytes += key.size() + value.size();
 
   // 更新各层的指针
@@ -108,7 +113,7 @@ std::optional<std::string> SkipList::get(const std::string &key) const {
 
 // 删除键值对
 void SkipList::remove(const std::string &key) {
-  std::vector<std::shared_ptr<Node>> update(max_level, nullptr);
+  std::vector<std::shared_ptr<SkipListNode>> update(max_level, nullptr);
   auto current = head;
 
   // 从最高层开始查找目标节点
@@ -157,6 +162,6 @@ size_t SkipList::get_size() const { return size_bytes; }
 
 // 清空跳表，释放内存
 void SkipList::clear() {
-  head = std::make_shared<Node>("", "", max_level);
+  head = std::make_shared<SkipListNode>("", "", max_level);
   size_bytes = 0;
 }

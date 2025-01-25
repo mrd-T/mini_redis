@@ -1,4 +1,5 @@
 #include "../../include/memtable/memtable.h"
+#include "../../include/memtable/iterator.h"
 #include "../../include/skiplist/skiplist.h"
 #include <memory>
 #include <optional>
@@ -71,3 +72,7 @@ size_t MemTable::get_frozen_size() const { return frozen_bytes; }
 size_t MemTable::get_total_size() const {
   return get_frozen_size() + get_cur_size();
 }
+
+MemTableIterator MemTable::begin() const { return MemTableIterator(*this); }
+
+MemTableIterator MemTable::end() const { return MemTableIterator{}; }

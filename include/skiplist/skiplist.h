@@ -8,37 +8,43 @@
 #include <string>
 #include <vector>
 
-struct Node {
+struct SkipListNode {
   std::string key;   // 节点存储的键
   std::string value; // 节点存储的值
-  std::vector<std::shared_ptr<Node>>
+  std::vector<std::shared_ptr<SkipListNode>>
       forward; // 指向不同层级的下一个节点的指针数组
 
-  Node(const std::string &k, const std::string &v, int level)
+  SkipListNode(const std::string &k, const std::string &v, int level)
       : key(k), value(v), forward(level, nullptr) {}
 };
 
-class Iterator {
+class SkipListIterator {
 public:
-  Iterator(std::shared_ptr<Node> node) : current(node) {}
+  SkipListIterator(std::shared_ptr<SkipListNode> node) : current(node) {}
 
   std::pair<std::string, std::string> operator*() const;
 
-  Iterator &operator++();
+  SkipListIterator &operator++(); // 前置自增
 
-  Iterator operator++(int);
+  SkipListIterator operator++(int); // 后置自增
 
-  bool operator==(const Iterator &other) const;
+  bool operator==(const SkipListIterator &other) const;
 
-  bool operator!=(const Iterator &other) const;
+  bool operator!=(const SkipListIterator &other) const;
+
+  std::string get_key() const;
+  std::string get_value() const;
+
+  bool is_valid() const;
 
 private:
-  std::shared_ptr<Node> current;
+  std::shared_ptr<SkipListNode> current;
 };
 
 class SkipList {
 private:
-  std::shared_ptr<Node> head; // 跳表的头节点，不存储实际数据，用于遍历跳表
+  std::shared_ptr<SkipListNode>
+      head; // 跳表的头节点，不存储实际数据，用于遍历跳表
   int max_level;     // 跳表的最大层级数，限制跳表的高度
   int current_level; // 跳表当前的实际层级数，动态变化
   size_t size_bytes = 0; // 跳表当前占用的内存大小（字节数），用于跟踪内存使用
@@ -64,9 +70,9 @@ public:
 
   void clear(); // 清空跳表，释放内存
 
-  Iterator begin() const { return Iterator(head->forward[0]); }
+  SkipListIterator begin() const { return SkipListIterator(head->forward[0]); }
 
-  Iterator end() const { return Iterator(nullptr); }
+  SkipListIterator end() const { return SkipListIterator(nullptr); }
 };
 
 #endif // SKIPLIST_H

@@ -7,13 +7,13 @@ add_requires("gtest")
 
 target("skiplist")
     set_kind("static")  -- 生成静态库
-    add_files("src/skiplist/skipList.cpp")
+    add_files("src/skiplist/*.cpp")
     add_includedirs("include", {public = true})
 
 target("memtable")
     set_kind("static")  -- 生成静态库
     add_deps("skiplist")
-    add_files("src/memtable/memtable.cpp")
+    add_files("src/memtable/*.cpp")
     add_includedirs("include", {public = true})
 
 -- 定义测试

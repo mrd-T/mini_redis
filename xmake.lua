@@ -3,7 +3,7 @@ set_project("toni-lsm")
 set_version("0.0.1")
 
 add_rules("mode.debug", "mode.release")
-add_requires("gtest")
+add_requires("gtest") -- 添加gtest依赖
 
 target("skiplist")
     set_kind("static")  -- 生成静态库

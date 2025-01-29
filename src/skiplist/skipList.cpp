@@ -1,6 +1,11 @@
 #include "../../include/skiplist/skiplist.h"
+#include <stdexcept>
+
+// ************************ SkipListIterator ************************
 
 std::pair<std::string, std::string> SkipListIterator::operator*() const {
+  if (!current)
+    throw std::runtime_error("Dereferencing invalid iterator");
   return {current->key, current->value};
 }
 
@@ -30,6 +35,7 @@ std::string SkipListIterator::get_value() const { return current->value; }
 
 bool SkipListIterator::is_valid() const { return !current->value.empty(); }
 
+// ************************ SkipList ************************
 // 构造函数
 SkipList::SkipList(int max_lvl) : max_level(max_lvl), current_level(1) {
   head = std::make_shared<SkipListNode>("", "", max_level);
@@ -53,6 +59,8 @@ int SkipList::random_level() {
 // 插入或更新键值对
 void SkipList::put(const std::string &key, const std::string &value) {
   std::vector<std::shared_ptr<SkipListNode>> update(max_level, nullptr);
+
+  std::unique_lock<std::shared_mutex> lock(rw_mutex);
   auto current = head;
 
   // 从最高层开始查找插入位置
@@ -93,7 +101,9 @@ void SkipList::put(const std::string &key, const std::string &value) {
 }
 
 // 查找键值对
-std::optional<std::string> SkipList::get(const std::string &key) const {
+std::optional<std::string> SkipList::get(const std::string &key) {
+  std::shared_lock<std::shared_mutex> slock(rw_mutex);
+
   auto current = head;
   // 从最高层开始查找
   for (int i = current_level - 1; i >= 0; --i) {
@@ -114,6 +124,8 @@ std::optional<std::string> SkipList::get(const std::string &key) const {
 // 删除键值对
 void SkipList::remove(const std::string &key) {
   std::vector<std::shared_ptr<SkipListNode>> update(max_level, nullptr);
+
+  std::unique_lock<std::shared_mutex> lock(rw_mutex);
   auto current = head;
 
   // 从最高层开始查找目标节点
@@ -149,6 +161,8 @@ void SkipList::remove(const std::string &key) {
 
 // 刷盘时可以直接遍历最底层链表
 std::vector<std::pair<std::string, std::string>> SkipList::flush() {
+  std::shared_lock<std::shared_mutex> slock(rw_mutex);
+
   std::vector<std::pair<std::string, std::string>> data;
   auto node = head->forward[0];
   while (node) {
@@ -158,10 +172,22 @@ std::vector<std::pair<std::string, std::string>> SkipList::flush() {
   return data;
 }
 
-size_t SkipList::get_size() const { return size_bytes; }
+size_t SkipList::get_size() {
+  std::shared_lock<std::shared_mutex> slock(rw_mutex);
+  return size_bytes;
+}
 
 // 清空跳表，释放内存
 void SkipList::clear() {
+  std::unique_lock<std::shared_mutex> lock(rw_mutex);
   head = std::make_shared<SkipListNode>("", "", max_level);
   size_bytes = 0;
+}
+
+SkipListIterator SkipList::begin() {
+  return SkipListIterator(head->forward[0], rw_mutex);
+}
+
+SkipListIterator SkipList::end() {
+  return SkipListIterator(); // 使用空构造函数
 }

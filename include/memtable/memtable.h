@@ -5,7 +5,9 @@
 #include <cstddef>
 #include <list>
 #include <memory>
+#include <mutex>
 #include <optional>
+#include <shared_mutex>
 #include <string>
 #include <unordered_map>
 
@@ -24,16 +26,17 @@ public:
   void clear();
   void flush();
   void frozen_cur_table();
-  size_t get_cur_size() const;
-  size_t get_frozen_size() const;
-  size_t get_total_size() const;
-  MemTableIterator begin() const;
-  MemTableIterator end() const;
+  size_t get_cur_size();
+  size_t get_frozen_size();
+  size_t get_total_size();
+  MemTableIterator begin();
+  MemTableIterator end();
 
 private:
   std::shared_ptr<SkipList> current_table;
   std::list<std::shared_ptr<SkipList>> frozen_tables;
   size_t frozen_bytes;
+  std::shared_mutex rx_mtx; // 以整个 SkipList 为单位的锁
 };
 
 #endif // MEMTABLE_H

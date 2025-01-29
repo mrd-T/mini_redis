@@ -1,6 +1,7 @@
 -- 定义项目
 set_project("toni-lsm")
 set_version("0.0.1")
+set_languages("c++20")
 
 add_rules("mode.debug", "mode.release")
 add_requires("gtest") -- 添加gtest依赖

@@ -1,5 +1,4 @@
-#ifndef MEMTABLE_ITERATOR_H
-#define MEMTABLE_ITERATOR_H
+#pragma once
 
 #include "../skiplist/skiplist.h"
 #include "memtable.h"
@@ -30,5 +29,3 @@ private:
                       std::greater<SearchItem>>
       items;
 };
-
-#endif // MEMTABLE_ITERATOR_H

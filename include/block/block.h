@@ -1,3 +1,5 @@
+#pragma once
+
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -31,6 +33,7 @@ class Block : public std::enable_shared_from_this<Block> {
 private:
   std::vector<uint8_t> data;
   std::vector<uint16_t> offsets;
+  size_t capacity;
 
   struct Entry {
     std::string key;
@@ -42,13 +45,16 @@ private:
   int compare_key_at(size_t offset, const std::string &target) const;
 
 public:
+  Block() = default;
+  Block(size_t capacity);
   std::vector<uint8_t> encode();
   static std::shared_ptr<Block> decode(const std::vector<uint8_t> &encoded);
   std::string get_first_key();
   size_t get_offset_at(size_t idx) const;
-  void add_entry(const std::string &key, const std::string &value);
+  bool add_entry(const std::string &key, const std::string &value);
   std::optional<std::string> get_value_binary(const std::string &key);
-  size_t size() const;
+  size_t cur_size() const;
+  bool is_empty() const;
 
   BlockIterator begin();
 

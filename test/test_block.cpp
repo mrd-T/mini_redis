@@ -1,5 +1,5 @@
-#include "../include/sst/block.h"
-#include "../include/sst/block_iterator.h"
+#include "../include/block/block.h"
+#include "../include/block/block_iterator.h"
 #include <gtest/gtest.h>
 
 class BlockTest : public ::testing::Test {
@@ -60,7 +60,7 @@ TEST_F(BlockTest, DecodeTest) {
 
 // 测试编码
 TEST_F(BlockTest, EncodeTest) {
-  Block block;
+  Block block(1024);
   block.add_entry("apple", "red");
   block.add_entry("banana", "yellow");
   block.add_entry("orange", "orange");
@@ -76,7 +76,7 @@ TEST_F(BlockTest, EncodeTest) {
 
 // 测试二分查找
 TEST_F(BlockTest, BinarySearchTest) {
-  Block block;
+  Block block(1024);
   block.add_entry("apple", "red");
   block.add_entry("banana", "yellow");
   block.add_entry("orange", "orange");
@@ -93,7 +93,7 @@ TEST_F(BlockTest, BinarySearchTest) {
 
 // 测试边界情况
 TEST_F(BlockTest, EdgeCasesTest) {
-  Block block;
+  Block block(1024);
 
   // 空block
   EXPECT_EQ(block.get_first_key(), "");
@@ -113,7 +113,7 @@ TEST_F(BlockTest, EdgeCasesTest) {
 
 // 测试大数据量
 TEST_F(BlockTest, LargeDataTest) {
-  Block block;
+  Block block(1024);
   const int n = 1000;
 
   // 添加大量数据
@@ -158,7 +158,7 @@ TEST_F(BlockTest, ErrorHandlingTest) {
 // 测试迭代器
 TEST_F(BlockTest, IteratorTest) {
   // 使用 make_shared 创建 Block
-  auto block = std::make_shared<Block>();
+  auto block = std::make_shared<Block>(4096);
 
   // 1. 测试空block的迭代器
   EXPECT_EQ(block->begin(), block->end());
@@ -197,9 +197,9 @@ TEST_F(BlockTest, IteratorTest) {
   auto encoded = block->encode();
   auto decoded_block = Block::decode(encoded);
   count = 0;
-  for (const auto &[key, value] : *decoded_block) {
-    EXPECT_EQ(key, test_data[count].first);
-    EXPECT_EQ(value, test_data[count].second);
+  for (auto it = decoded_block->begin(); it != decoded_block->end(); ++it) {
+    EXPECT_EQ((*it).first, test_data[count].first);
+    EXPECT_EQ((*it).second, test_data[count].second);
     count++;
   }
 }

@@ -1,5 +1,4 @@
-#ifndef SKIPLIST_H
-#define SKIPLIST_H
+#pragma once
 
 #include <cstddef>
 #include <memory>
@@ -95,5 +94,3 @@ public:
 
   SkipListIterator end();
 };
-
-#endif // SKIPLIST_H

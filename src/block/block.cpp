@@ -1,10 +1,12 @@
-#include "../../include/sst/block.h"
-#include "../../include/sst/block_iterator.h"
+#include "../../include/block/block.h"
+#include "../../include/block/block_iterator.h"
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <optional>
 #include <stdexcept>
+
+Block::Block(size_t capacity) : capacity(capacity) {}
 
 std::vector<uint8_t> Block::encode() {
   // 计算总大小：数据段 + 偏移数组(每个偏移2字节) + 元素个数(2字节)
@@ -31,40 +33,40 @@ std::vector<uint8_t> Block::encode() {
   return encoded;
 }
 
-std::shared_ptr<Block> Block::decode(const std::vector<uint8_t>& encoded) {
-    // 使用 make_shared 创建对象
-    auto block = std::make_shared<Block>();
-    
-    // 1. 安全性检查
-    if (encoded.size() < sizeof(uint16_t)) {
-        throw std::runtime_error("Encoded data too small");
-    }
+std::shared_ptr<Block> Block::decode(const std::vector<uint8_t> &encoded) {
+  // 使用 make_shared 创建对象
+  auto block = std::make_shared<Block>();
 
-    // 2. 读取元素个数
-    uint16_t num_elements;
-    size_t num_elements_pos = encoded.size() - sizeof(uint16_t);
-    memcpy(&num_elements, encoded.data() + num_elements_pos, sizeof(uint16_t));
+  // 1. 安全性检查
+  if (encoded.size() < sizeof(uint16_t)) {
+    throw std::runtime_error("Encoded data too small");
+  }
 
-    // 3. 验证数据大小
-    size_t required_size = sizeof(uint16_t) + num_elements * sizeof(uint16_t);
-    if (encoded.size() < required_size) {
-        throw std::runtime_error("Invalid encoded data size");
-    }
+  // 2. 读取元素个数
+  uint16_t num_elements;
+  size_t num_elements_pos = encoded.size() - sizeof(uint16_t);
+  memcpy(&num_elements, encoded.data() + num_elements_pos, sizeof(uint16_t));
 
-    // 4. 计算各段位置
-    size_t offsets_section_start =
-        num_elements_pos - num_elements * sizeof(uint16_t);
+  // 3. 验证数据大小
+  size_t required_size = sizeof(uint16_t) + num_elements * sizeof(uint16_t);
+  if (encoded.size() < required_size) {
+    throw std::runtime_error("Invalid encoded data size");
+  }
 
-    // 5. 读取偏移数组
-    block->offsets.resize(num_elements);
-    memcpy(block->offsets.data(), encoded.data() + offsets_section_start,
-           num_elements * sizeof(uint16_t));
+  // 4. 计算各段位置
+  size_t offsets_section_start =
+      num_elements_pos - num_elements * sizeof(uint16_t);
 
-    // 6. 复制数据段
-    block->data.reserve(offsets_section_start); // 优化内存分配
-    block->data.assign(encoded.begin(), encoded.begin() + offsets_section_start);
+  // 5. 读取偏移数组
+  block->offsets.resize(num_elements);
+  memcpy(block->offsets.data(), encoded.data() + offsets_section_start,
+         num_elements * sizeof(uint16_t));
 
-    return block;
+  // 6. 复制数据段
+  block->data.reserve(offsets_section_start); // 优化内存分配
+  block->data.assign(encoded.begin(), encoded.begin() + offsets_section_start);
+
+  return block;
 }
 
 std::string Block::get_first_key() {
@@ -89,7 +91,12 @@ size_t Block::get_offset_at(size_t idx) const {
   return offsets[idx];
 }
 
-void Block::add_entry(const std::string &key, const std::string &value) {
+bool Block::add_entry(const std::string &key, const std::string &value) {
+  if ((cur_size() + key.size() + value.size() + 3 * sizeof(uint16_t) >
+       capacity) &&
+      !offsets.empty()) {
+    return false;
+  }
   // 计算entry大小：key长度(2B) + key + value长度(2B) + value
   size_t entry_size =
       sizeof(uint16_t) + key.size() + sizeof(uint16_t) + value.size();
@@ -114,6 +121,7 @@ void Block::add_entry(const std::string &key, const std::string &value) {
 
   // 记录偏移
   offsets.push_back(old_size);
+  return true;
 }
 
 // 从指定偏移量获取entry的key
@@ -187,7 +195,11 @@ Block::Entry Block::get_entry_at(size_t offset) const {
   return entry;
 }
 
-size_t Block::size() const { return offsets.size(); }
+size_t Block::cur_size() const {
+  return data.size() + offsets.size() * sizeof(uint16_t) + sizeof(uint16_t);
+}
+
+bool Block::is_empty() const { return offsets.empty(); }
 
 BlockIterator Block::begin() { return BlockIterator(shared_from_this(), 0); }
 

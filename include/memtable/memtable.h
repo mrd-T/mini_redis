@@ -1,5 +1,4 @@
-#ifndef MEMTABLE_H
-#define MEMTABLE_H
+#pragma once
 
 #include "../skiplist/skiplist.h"
 #include <cstddef>
@@ -38,5 +37,3 @@ private:
   size_t frozen_bytes;
   std::shared_mutex rx_mtx; // 以整个 SkipList 为单位的锁
 };
-
-#endif // MEMTABLE_H

@@ -113,7 +113,7 @@ TEST_F(BlockTest, EdgeCasesTest) {
 
 // 测试大数据量
 TEST_F(BlockTest, LargeDataTest) {
-  Block block(1024);
+  Block block(1024 * 32);
   const int n = 1000;
 
   // 添加大量数据

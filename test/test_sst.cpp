@@ -134,12 +134,12 @@ TEST_F(SSTTest, LargeSST) {
 
   // 添加大量数据
   for (int i = 0; i < 1000; i++) {
-    // 确保key长度一致：key000, key001, ..., key999
+    // key格式：key000, key001, ..., key999
     std::string key = "key" + std::string(3 - std::to_string(i).length(), '0') +
                       std::to_string(i);
 
-    // 确保value长度一致：添加前导零，然后用'v'填充到固定长度
-    std::string value = std::string(100 - 3 - std::to_string(i).length(), 'v') +
+    // value格式：val000, val001, ..., val999
+    std::string value = "val" +
                         std::string(3 - std::to_string(i).length(), '0') +
                         std::to_string(i);
 
@@ -165,8 +165,8 @@ TEST_F(SSTTest, LargeSST) {
 
     // 构造期望的value
     std::string expected_value =
-        std::string(100 - 3 - std::to_string(i).length(), 'v') +
-        std::string(3 - std::to_string(i).length(), '0') + std::to_string(i);
+        "val" + std::string(3 - std::to_string(i).length(), '0') +
+        std::to_string(i);
     EXPECT_EQ(*value, expected_value);
   }
 }

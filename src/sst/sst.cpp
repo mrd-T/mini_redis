@@ -70,7 +70,7 @@ std::shared_ptr<Block> SST::read_block(size_t block_idx) {
 
   // 读取block数据
   auto block_data = file.read_to_slice(meta.offset, block_size);
-  return Block::decode(block_data);
+  return Block::decode(block_data, true);
 }
 
 size_t SST::find_block_idx(const std::string &key) {

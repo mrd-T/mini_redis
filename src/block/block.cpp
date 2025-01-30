@@ -33,7 +33,8 @@ std::vector<uint8_t> Block::encode() {
   return encoded;
 }
 
-std::shared_ptr<Block> Block::decode(const std::vector<uint8_t> &encoded) {
+std::shared_ptr<Block> Block::decode(const std::vector<uint8_t> &encoded,
+                                     bool with_hash) {
   // 使用 make_shared 创建对象
   auto block = std::make_shared<Block>();
 
@@ -44,7 +45,20 @@ std::shared_ptr<Block> Block::decode(const std::vector<uint8_t> &encoded) {
 
   // 2. 读取元素个数
   uint16_t num_elements;
-  size_t num_elements_pos = encoded.size() - sizeof(uint16_t) - sizeof(uint32_t);
+  size_t num_elements_pos = encoded.size() - sizeof(uint16_t);
+  if (with_hash) {
+    num_elements_pos -= sizeof(uint32_t);
+    auto hash_pos = encoded.size() - sizeof(uint32_t);
+    uint32_t hash_value;
+    memcpy(&hash_value, encoded.data() + hash_pos, sizeof(uint32_t));
+
+    uint32_t compute_hash = std::hash<std::string_view>{}(
+        std::string_view(reinterpret_cast<const char *>(encoded.data()),
+                         encoded.size() - sizeof(uint32_t)));
+    if (hash_value != compute_hash) {
+      throw std::runtime_error("Block hash verification failed");
+    }
+  }
   memcpy(&num_elements, encoded.data() + num_elements_pos, sizeof(uint16_t));
 
   // 3. 验证数据大小

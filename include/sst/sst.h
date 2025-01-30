@@ -38,7 +38,7 @@ class SST {
 private:
   FileObj file;
   std::vector<BlockMeta> meta_entries;
-  size_t meta_block_offset;
+  uint32_t meta_block_offset;
   size_t sst_id;
   std::string first_key;
   std::string last_key;

@@ -134,9 +134,15 @@ TEST_F(SSTTest, LargeSST) {
 
   // 添加大量数据
   for (int i = 0; i < 1000; i++) {
-    std::string key = "key" + std::to_string(i);
-    std::string value =
-        std::string(100, 'v') + std::to_string(i); // 100B values
+    // 确保key长度一致：key000, key001, ..., key999
+    std::string key = "key" + std::string(3 - std::to_string(i).length(), '0') +
+                      std::to_string(i);
+
+    // 确保value长度一致：添加前导零，然后用'v'填充到固定长度
+    std::string value = std::string(100 - 3 - std::to_string(i).length(), 'v') +
+                        std::string(3 - std::to_string(i).length(), '0') +
+                        std::to_string(i);
+
     builder.add(key, value);
   }
 
@@ -144,18 +150,24 @@ TEST_F(SSTTest, LargeSST) {
 
   // 验证数据完整性
   EXPECT_GT(sst.num_blocks(), 1);
-  EXPECT_EQ(sst.get_first_key(), "key0");
+  EXPECT_EQ(sst.get_first_key(), "key000");
   EXPECT_EQ(sst.get_last_key(), "key999");
 
   // 随机访问一些key
   std::vector<int> test_indices = {0, 100, 500, 999};
   for (int i : test_indices) {
-    std::string key = "key" + std::to_string(i);
+    std::string key = "key" + std::string(3 - std::to_string(i).length(), '0') +
+                      std::to_string(i);
     size_t idx = sst.find_block_idx(key);
     auto block = sst.read_block(idx);
     auto value = block->get_value_binary(key);
     EXPECT_TRUE(value.has_value());
-    EXPECT_EQ(*value, std::string(100, 'v') + std::to_string(i));
+
+    // 构造期望的value
+    std::string expected_value =
+        std::string(100 - 3 - std::to_string(i).length(), 'v') +
+        std::string(3 - std::to_string(i).length(), '0') + std::to_string(i);
+    EXPECT_EQ(*value, expected_value);
   }
 }
 

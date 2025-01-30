@@ -44,7 +44,7 @@ std::shared_ptr<Block> Block::decode(const std::vector<uint8_t> &encoded) {
 
   // 2. 读取元素个数
   uint16_t num_elements;
-  size_t num_elements_pos = encoded.size() - sizeof(uint16_t);
+  size_t num_elements_pos = encoded.size() - sizeof(uint16_t) - sizeof(uint32_t);
   memcpy(&num_elements, encoded.data() + num_elements_pos, sizeof(uint16_t));
 
   // 3. 验证数据大小

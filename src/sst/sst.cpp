@@ -1,6 +1,7 @@
 #include "../../include/sst/sst.h"
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <functional>
 #include <stdexcept>
@@ -22,11 +23,11 @@ SST SST::open(size_t sst_id, FileObj file) {
   }
 
   auto offset_bytes =
-      sst.file.read_to_slice(file_size - sizeof(size_t), sizeof(size_t));
-  memcpy(&sst.meta_block_offset, offset_bytes.data(), sizeof(size_t));
+      sst.file.read_to_slice(file_size - sizeof(uint32_t), sizeof(uint32_t));
+  memcpy(&sst.meta_block_offset, offset_bytes.data(), sizeof(uint32_t));
 
   // 2. 读取并解码元数据块
-  size_t meta_size = file_size - sst.meta_block_offset - sizeof(size_t);
+  uint32_t meta_size = file_size - sst.meta_block_offset - sizeof(uint32_t);
   auto meta_bytes = sst.file.read_to_slice(sst.meta_block_offset, meta_size);
   sst.meta_entries = BlockMeta::decode_meta_from_slice(meta_bytes);
 
@@ -159,7 +160,9 @@ void SSTBuilder::finish_block() {
   data.reserve(data.size() + encoded_block.size() +
                sizeof(uint32_t)); // 加上的是哈希值
   data.insert(data.end(), encoded_block.begin(), encoded_block.end());
-  data.push_back(block_hash);
+  data.resize(data.size() + sizeof(uint32_t));
+  memcpy(data.data() + data.size() - sizeof(uint32_t), &block_hash,
+         sizeof(uint32_t));
 }
 
 SST SSTBuilder::build(size_t sst_id, const std::string &path) {
@@ -178,7 +181,7 @@ SST SSTBuilder::build(size_t sst_id, const std::string &path) {
   BlockMeta::encode_meta_to_slice(meta_entries, meta_block);
 
   // 计算元数据块的偏移量
-  size_t meta_offset = data.size();
+  uint32_t meta_offset = data.size();
 
   // 构建完整的文件内容
   // 1. 已有的数据块
@@ -188,9 +191,9 @@ SST SSTBuilder::build(size_t sst_id, const std::string &path) {
   file_content.insert(file_content.end(), meta_block.begin(), meta_block.end());
 
   // 3. 添加元数据块偏移量
-  file_content.resize(file_content.size() + sizeof(size_t));
-  memcpy(file_content.data() + file_content.size() - sizeof(size_t),
-         &meta_offset, sizeof(size_t));
+  file_content.resize(file_content.size() + sizeof(uint32_t));
+  memcpy(file_content.data() + file_content.size() - sizeof(uint32_t),
+         &meta_offset, sizeof(uint32_t));
 
   // 创建文件
   FileObj file = FileObj::create_and_write(path, file_content);
@@ -200,8 +203,8 @@ SST SSTBuilder::build(size_t sst_id, const std::string &path) {
 
   res.sst_id = sst_id;
   res.file = std::move(file);
-  res.first_key = first_key;
-  res.last_key = last_key;
+  res.first_key = meta_entries.front().first_key;
+  res.last_key = meta_entries.back().last_key;
   res.meta_block_offset = meta_offset;
   res.meta_entries = std::move(meta_entries);
 

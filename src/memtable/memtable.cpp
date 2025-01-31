@@ -49,7 +49,7 @@ std::optional<std::string> MemTable::get(const std::string &key) {
   }
 
   // 都没有找到，返回空
-  // !!! 目前只实现了内存中的 memtable, 还没有实现 SST
+  // !!! 目前只实现了内存中的 memtable 查询, 还没有实现 SST 的查询 (预计在上层完成, 不会修改此函数 ???)
   return std::nullopt;
 }
 

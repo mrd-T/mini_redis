@@ -24,10 +24,14 @@ struct SkipListNode {
 
 class SkipListIterator {
 public:
-  // 构造函数，接收锁
-  SkipListIterator(std::shared_ptr<SkipListNode> node, std::shared_mutex &mutex)
-      : current(node),
-        lock(std::make_shared<std::shared_lock<std::shared_mutex>>(mutex)) {}
+  // ! deprecated: 构造函数，接收锁
+  // SkipListIterator(std::shared_ptr<SkipListNode> node, std::shared_mutex
+  // &mutex)
+  //     : current(node),
+  //       lock(std::make_shared<std::shared_lock<std::shared_mutex>>(mutex)) {}
+
+  // 构造函数
+  SkipListIterator(std::shared_ptr<SkipListNode> node) : current(node) {}
 
   // 空迭代器构造函数
   SkipListIterator() : current(nullptr), lock(nullptr) {}
@@ -62,7 +66,7 @@ private:
   int max_level;     // 跳表的最大层级数，限制跳表的高度
   int current_level; // 跳表当前的实际层级数，动态变化
   size_t size_bytes = 0; // 跳表当前占用的内存大小（字节数），用于跟踪内存使用
-  std::shared_mutex rw_mutex;
+  // std::shared_mutex rw_mutex; // ! 目前看起来这个锁是冗余的, 在上层控制即可, 后续考虑是否需要细粒度的锁
 
   int random_level(); // 生成新节点的随机层级数
 
@@ -71,7 +75,7 @@ public:
 
   // 析构函数需要确保没有其他线程访问
   ~SkipList() {
-    std::unique_lock<std::shared_mutex> lock(rw_mutex);
+    // std::unique_lock<std::shared_mutex> lock(rw_mutex);
     // ... 清理资源
   }
 

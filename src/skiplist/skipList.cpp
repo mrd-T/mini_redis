@@ -60,7 +60,7 @@ int SkipList::random_level() {
 void SkipList::put(const std::string &key, const std::string &value) {
   std::vector<std::shared_ptr<SkipListNode>> update(max_level, nullptr);
 
-  std::unique_lock<std::shared_mutex> lock(rw_mutex);
+  // std::unique_lock<std::shared_mutex> lock(rw_mutex);
   auto current = head;
 
   // 从最高层开始查找插入位置
@@ -102,7 +102,7 @@ void SkipList::put(const std::string &key, const std::string &value) {
 
 // 查找键值对
 std::optional<std::string> SkipList::get(const std::string &key) {
-  std::shared_lock<std::shared_mutex> slock(rw_mutex);
+  // std::shared_lock<std::shared_mutex> slock(rw_mutex);
 
   auto current = head;
   // 从最高层开始查找
@@ -125,7 +125,7 @@ std::optional<std::string> SkipList::get(const std::string &key) {
 void SkipList::remove(const std::string &key) {
   std::vector<std::shared_ptr<SkipListNode>> update(max_level, nullptr);
 
-  std::unique_lock<std::shared_mutex> lock(rw_mutex);
+  // std::unique_lock<std::shared_mutex> lock(rw_mutex);
   auto current = head;
 
   // 从最高层开始查找目标节点
@@ -161,7 +161,7 @@ void SkipList::remove(const std::string &key) {
 
 // 刷盘时可以直接遍历最底层链表
 std::vector<std::pair<std::string, std::string>> SkipList::flush() {
-  std::shared_lock<std::shared_mutex> slock(rw_mutex);
+  // std::shared_lock<std::shared_mutex> slock(rw_mutex);
 
   std::vector<std::pair<std::string, std::string>> data;
   auto node = head->forward[0];
@@ -173,19 +173,20 @@ std::vector<std::pair<std::string, std::string>> SkipList::flush() {
 }
 
 size_t SkipList::get_size() {
-  std::shared_lock<std::shared_mutex> slock(rw_mutex);
+  // std::shared_lock<std::shared_mutex> slock(rw_mutex);
   return size_bytes;
 }
 
 // 清空跳表，释放内存
 void SkipList::clear() {
-  std::unique_lock<std::shared_mutex> lock(rw_mutex);
+  // std::unique_lock<std::shared_mutex> lock(rw_mutex);
   head = std::make_shared<SkipListNode>("", "", max_level);
   size_bytes = 0;
 }
 
 SkipListIterator SkipList::begin() {
-  return SkipListIterator(head->forward[0], rw_mutex);
+  // return SkipListIterator(head->forward[0], rw_mutex);
+  return SkipListIterator(head->forward[0]);
 }
 
 SkipListIterator SkipList::end() {

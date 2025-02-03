@@ -47,6 +47,19 @@ target("lsm")
     add_files("src/lsm/*.cpp")
     add_includedirs("include", {public = true})
 
+-- 定义动态链接库目标
+target("lsm_shared")
+    set_kind("shared")
+    add_files("src/**.cpp")
+    add_includedirs("include", {public = true})
+    set_targetdir("$(buildir)/lib")
+
+    -- 安装头文件和动态链接库
+    on_install(function (target)
+        os.cp("include", path.join(target:installdir(), "include/toni-lsm"))
+        os.cp(target:targetfile(), path.join(target:installdir(), "lib"))
+    end)
+
 -- 定义测试
 target("test_skiplist")
     set_kind("binary")  -- 生成可执行文件
@@ -96,3 +109,11 @@ target("test_lsm")
     add_deps("lsm", "memtable", "iterator")  -- Added memtable and iterator dependencies
     add_packages("gtest")
     add_includedirs("include")
+
+-- 定义案例
+target("example")
+    set_kind("binary")
+    add_files("example/main.cpp")
+    add_deps("lsm_shared")
+    add_includedirs("include", {public = true})
+    set_targetdir("$(buildir)/bin")

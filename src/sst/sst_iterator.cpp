@@ -84,8 +84,19 @@ SstIterator &SstIterator::operator++() {
 }
 
 bool SstIterator::operator==(const SstIterator &other) const {
-  return m_sst == other.m_sst && m_block_idx == other.m_block_idx &&
-         *m_block_it == *other.m_block_it;
+  if (m_sst != other.m_sst || m_block_idx != other.m_block_idx) {
+    return false;
+  }
+
+  if (!m_block_it && !other.m_block_it) {
+    return true;
+  }
+
+  if (!m_block_it || !other.m_block_it) {
+    return false;
+  }
+
+  return *m_block_it == *other.m_block_it;
 }
 
 bool SstIterator::operator!=(const SstIterator &other) const {

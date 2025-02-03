@@ -122,6 +122,8 @@ std::optional<std::string> SkipList::get(const std::string &key) {
 }
 
 // 删除键值对
+// ! 这里的 remove 是跳表本身真实的 remove,  lsm 应该使用 put 空值表示删除,
+// ! 这里只是为了实现完整的 SkipList 不会真正被上层调用
 void SkipList::remove(const std::string &key) {
   std::vector<std::shared_ptr<SkipListNode>> update(max_level, nullptr);
 

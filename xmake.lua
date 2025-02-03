@@ -25,6 +25,7 @@ target("memtable")
     set_kind("static")  -- 生成静态库
     add_deps("skiplist")
     add_deps("iterator")
+    add_deps("sst")
     add_files("src/memtable/*.cpp")
     add_includedirs("include", {public = true})
 
@@ -38,6 +39,12 @@ target("sst")
     add_deps("block")
     add_deps("utils")
     add_files("src/sst/*.cpp")
+    add_includedirs("include", {public = true})
+
+target("lsm")
+    set_kind("static")  -- 生成静态库
+    add_deps("sst")
+    add_files("src/lsm/*.cpp")
     add_includedirs("include", {public = true})
 
 -- 定义测试

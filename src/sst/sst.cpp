@@ -11,45 +11,46 @@
 // SST
 // **************************************************
 
-SST SST::open(size_t sst_id, FileObj file) {
-  SST sst;
-  sst.sst_id = sst_id;
-  sst.file = std::move(file);
+std::shared_ptr<SST> SST::open(size_t sst_id, FileObj file) {
+  auto sst = std::make_shared<SST>();
+  sst->sst_id = sst_id;
+  sst->file = std::move(file);
 
   // 读取文件末尾的元数据块
   // 1. 读取元数据块的偏移量（最后8字节）
-  size_t file_size = sst.file.size();
+  size_t file_size = sst->file.size();
   if (file_size < sizeof(size_t)) {
     throw std::runtime_error("Invalid SST file: too small");
   }
 
   auto offset_bytes =
-      sst.file.read_to_slice(file_size - sizeof(uint32_t), sizeof(uint32_t));
-  memcpy(&sst.meta_block_offset, offset_bytes.data(), sizeof(uint32_t));
+      sst->file.read_to_slice(file_size - sizeof(uint32_t), sizeof(uint32_t));
+  memcpy(&sst->meta_block_offset, offset_bytes.data(), sizeof(uint32_t));
 
   // 2. 读取并解码元数据块
-  uint32_t meta_size = file_size - sst.meta_block_offset - sizeof(uint32_t);
-  auto meta_bytes = sst.file.read_to_slice(sst.meta_block_offset, meta_size);
-  sst.meta_entries = BlockMeta::decode_meta_from_slice(meta_bytes);
+  uint32_t meta_size = file_size - sst->meta_block_offset - sizeof(uint32_t);
+  auto meta_bytes = sst->file.read_to_slice(sst->meta_block_offset, meta_size);
+  sst->meta_entries = BlockMeta::decode_meta_from_slice(meta_bytes);
 
   // 3. 设置首尾key
-  if (!sst.meta_entries.empty()) {
-    sst.first_key = sst.meta_entries.front().first_key;
-    sst.last_key = sst.meta_entries.back().last_key;
+  if (!sst->meta_entries.empty()) {
+    sst->first_key = sst->meta_entries.front().first_key;
+    sst->last_key = sst->meta_entries.back().last_key;
   }
 
   return sst;
 }
 
-SST SST::create_sst_with_meta_only(size_t sst_id, size_t file_size,
-                                   const std::string &first_key,
-                                   const std::string &last_key) {
-  SST sst;
-  sst.file.set_size(file_size);
-  sst.sst_id = sst_id;
-  sst.first_key = first_key;
-  sst.last_key = last_key;
-  sst.meta_block_offset = 0;
+std::shared_ptr<SST>
+SST::create_sst_with_meta_only(size_t sst_id, size_t file_size,
+                               const std::string &first_key,
+                               const std::string &last_key) {
+  auto sst = std::make_shared<SST>();
+  sst->file.set_size(file_size);
+  sst->sst_id = sst_id;
+  sst->first_key = first_key;
+  sst->last_key = last_key;
+  sst->meta_block_offset = 0;
 
   return sst;
 }
@@ -183,7 +184,7 @@ void SSTBuilder::finish_block() {
          sizeof(uint32_t));
 }
 
-SST SSTBuilder::build(size_t sst_id, const std::string &path) {
+std::shared_ptr<SST> SSTBuilder::build(size_t sst_id, const std::string &path) {
   // 完成最后一个block
   if (!block.is_empty()) {
     finish_block();
@@ -217,14 +218,14 @@ SST SSTBuilder::build(size_t sst_id, const std::string &path) {
   FileObj file = FileObj::create_and_write(path, file_content);
 
   // 返回SST对象
-  SST res;
+  auto res = std::make_shared<SST>();
 
-  res.sst_id = sst_id;
-  res.file = std::move(file);
-  res.first_key = meta_entries.front().first_key;
-  res.last_key = meta_entries.back().last_key;
-  res.meta_block_offset = meta_offset;
-  res.meta_entries = std::move(meta_entries);
+  res->sst_id = sst_id;
+  res->file = std::move(file);
+  res->first_key = meta_entries.front().first_key;
+  res->last_key = meta_entries.back().last_key;
+  res->meta_block_offset = meta_offset;
+  res->meta_entries = std::move(meta_entries);
 
   return res;
 }

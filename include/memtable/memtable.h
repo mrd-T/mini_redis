@@ -11,6 +11,9 @@
 #include <string>
 #include <unordered_map>
 
+class SST;
+class SSTBuilder;
+
 class MemTable {
   friend class HeapIterator;
 
@@ -22,7 +25,8 @@ public:
   std::optional<std::string> get(const std::string &key);
   void remove(const std::string &key);
   void clear();
-  void flush();
+  std::shared_ptr<SST> flush_last(SSTBuilder &builder, std::string &sst_path,
+                                  size_t sst_id);
   void frozen_cur_table();
   size_t get_cur_size();
   size_t get_frozen_size();

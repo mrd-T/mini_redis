@@ -15,12 +15,13 @@ public:
   std::unordered_map<size_t, std::shared_ptr<SST>> ssts;
 
   LSMEngine(std::string path);
-  ~LSMEngine() = default;
+  ~LSMEngine();
 
   std::optional<std::string> get(const std::string &key);
   void put(const std::string &key, const std::string &value);
   void remove(const std::string &key);
   void flush();
+  void flush_all();
 
   std::string get_sst_path(size_t sst_id);
 

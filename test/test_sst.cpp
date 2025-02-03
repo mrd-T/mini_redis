@@ -17,7 +17,7 @@ protected:
   }
 
   // 辅助函数：创建一个包含有序数据的SST
-  SST create_test_sst(size_t block_size, size_t num_entries) {
+  std::shared_ptr<SST> create_test_sst(size_t block_size, size_t num_entries) {
     SSTBuilder builder(block_size);
 
     for (size_t i = 0; i < num_entries; i++) {
@@ -43,13 +43,13 @@ TEST_F(SSTTest, BasicWriteAndRead) {
   auto sst = builder.build(1, "test_data/basic.sst");
 
   // 验证基本属性
-  EXPECT_EQ(sst.get_first_key(), "key1");
-  EXPECT_EQ(sst.get_last_key(), "key3");
-  EXPECT_EQ(sst.get_sst_id(), 1);
-  EXPECT_GT(sst.sst_size(), 0);
+  EXPECT_EQ(sst->get_first_key(), "key1");
+  EXPECT_EQ(sst->get_last_key(), "key3");
+  EXPECT_EQ(sst->get_sst_id(), 1);
+  EXPECT_GT(sst->sst_size(), 0);
 
   // 读取并验证数据
-  auto block = sst.read_block(0);
+  auto block = sst->read_block(0);
   EXPECT_TRUE(block != nullptr);
   auto value = block->get_value_binary("key2");
   EXPECT_TRUE(value.has_value());
@@ -71,11 +71,11 @@ TEST_F(SSTTest, BlockSplitting) {
   auto sst = builder.build(1, "test_data/split.sst");
 
   // 验证有多个block
-  EXPECT_GT(sst.num_blocks(), 1);
+  EXPECT_GT(sst->num_blocks(), 1);
 
   // 验证每个block都可以正确读取
-  for (size_t i = 0; i < sst.num_blocks(); i++) {
-    auto block = sst.read_block(i);
+  for (size_t i = 0; i < sst->num_blocks(); i++) {
+    auto block = sst->read_block(i);
     EXPECT_TRUE(block != nullptr);
   }
 }
@@ -85,14 +85,14 @@ TEST_F(SSTTest, KeySearch) {
   auto sst = create_test_sst(256, 100); // 创建包含100个entry的SST
 
   // 测试find_block_idx
-  size_t idx = sst.find_block_idx("key50");
-  auto block = sst.read_block(idx);
+  size_t idx = sst->find_block_idx("key50");
+  auto block = sst->read_block(idx);
   auto value = block->get_value_binary("key50");
   EXPECT_TRUE(value.has_value());
   EXPECT_EQ(*value, "value50");
 
   // 测试边界情况
-  EXPECT_THROW(sst.find_block_idx("key999"), std::runtime_error);
+  EXPECT_THROW(sst->find_block_idx("key999"), std::runtime_error);
 }
 
 // 测试元数据
@@ -100,11 +100,11 @@ TEST_F(SSTTest, Metadata) {
   auto sst = create_test_sst(512, 10);
 
   // 验证block数量
-  EXPECT_GT(sst.num_blocks(), 0);
+  EXPECT_GT(sst->num_blocks(), 0);
 
   // 验证首尾key
-  EXPECT_EQ(sst.get_first_key(), "key0");
-  EXPECT_EQ(sst.get_last_key(), "key9");
+  EXPECT_EQ(sst->get_first_key(), "key0");
+  EXPECT_EQ(sst->get_last_key(), "key9");
 }
 
 // 测试空SST构建
@@ -123,9 +123,9 @@ TEST_F(SSTTest, ReopenSST) {
   auto reopened_sst = SST::open(1, std::move(file));
 
   // 验证数据一致性
-  EXPECT_EQ(sst.get_first_key(), reopened_sst.get_first_key());
-  EXPECT_EQ(sst.get_last_key(), reopened_sst.get_last_key());
-  EXPECT_EQ(sst.num_blocks(), reopened_sst.num_blocks());
+  EXPECT_EQ(sst->get_first_key(), reopened_sst->get_first_key());
+  EXPECT_EQ(sst->get_last_key(), reopened_sst->get_last_key());
+  EXPECT_EQ(sst->num_blocks(), reopened_sst->num_blocks());
 }
 
 // 测试大文件
@@ -149,17 +149,17 @@ TEST_F(SSTTest, LargeSST) {
   auto sst = builder.build(1, "test_data/large.sst");
 
   // 验证数据完整性
-  EXPECT_GT(sst.num_blocks(), 1);
-  EXPECT_EQ(sst.get_first_key(), "key000");
-  EXPECT_EQ(sst.get_last_key(), "key999");
+  EXPECT_GT(sst->num_blocks(), 1);
+  EXPECT_EQ(sst->get_first_key(), "key000");
+  EXPECT_EQ(sst->get_last_key(), "key999");
 
   // 随机访问一些key
   std::vector<int> test_indices = {0, 100, 500, 999};
   for (int i : test_indices) {
     std::string key = "key" + std::string(3 - std::to_string(i).length(), '0') +
                       std::to_string(i);
-    size_t idx = sst.find_block_idx(key);
-    auto block = sst.read_block(idx);
+    size_t idx = sst->find_block_idx(key);
+    auto block = sst->read_block(idx);
     auto value = block->get_value_binary(key);
     EXPECT_TRUE(value.has_value());
 

@@ -12,8 +12,39 @@ LSMEngine::LSMEngine(std::string path) : data_dir(path) {
     std::filesystem::create_directory(path);
   } else {
     // 如果目录存在，则检查是否有 sst 文件并加载
-    // TODO
+    for (const auto &entry : std::filesystem::directory_iterator(path)) {
+      if (!entry.is_regular_file()) {
+        continue;
+      }
+
+      std::string filename = entry.path().filename().string();
+      // SST文件名格式为: sst_{id}.sst
+      if (filename.substr(0, 4) != "sst_" ||
+          filename.substr(filename.length() - 4) != ".sst") {
+        continue;
+      }
+
+      // 提取SST ID
+      std::string id_str = filename.substr(4, filename.length() - 8);
+      size_t sst_id = std::stoull(id_str);
+
+      // 加载SST文件
+      std::string sst_path = get_sst_path(sst_id);
+      auto sst = SST::open(sst_id, FileObj::open(sst_path));
+      ssts[sst_id] = sst;
+
+      // 所有加载的SST都属于L0层
+      l0_sst_ids.push_back(sst_id);
+    }
+
+    // 按ID排序，确保顺序一致
+    l0_sst_ids.sort();
   }
+}
+
+LSMEngine::~LSMEngine() {
+  // 需要将所有内存表写入磁盘
+  flush_all();
 }
 
 std::optional<std::string> LSMEngine::get(const std::string &key) {
@@ -51,7 +82,7 @@ void LSMEngine::put(const std::string &key, const std::string &value) {
   memtable.put(key, value);
 
   // 如果 memtable 太大，需要刷新到磁盘
-  if (memtable.get_total_size() >= TOL_MEM_SIZE_LIMIT) {
+  if (memtable.get_total_size() >= LSM_TOL_MEM_SIZE_LIMIT) {
     flush();
   }
 }
@@ -69,30 +100,31 @@ void LSMEngine::flush() {
   // 1. 创建新的 SST ID
   size_t new_sst_id = l0_sst_ids.empty() ? 0 : l0_sst_ids.back() + 1;
 
-  // 2. 构建 SST
-  SSTBuilder builder(4096); // 4KB block size
+  // 2. 准备 SSTBuilder
+  SSTBuilder builder(LSM_BLOCK_SIZE); // 4KB block size
 
-  // 3. 将 memtable 中的数据写入 SST
-  auto mem_iter = memtable.begin();
-  while (!mem_iter.is_end()) {
-    auto [key, value] = *mem_iter;
-    builder.add(key, value);
-    ++mem_iter;
-  }
+  // 3. 将 memtable 中最旧的表写入 SST
+  auto sst_path = get_sst_path(new_sst_id);
+  auto new_sst = memtable.flush_last(builder, sst_path, new_sst_id);
 
-  // 4. 写入文件
-  auto sst =
-      builder.build(new_sst_id, "test_data/sst_" + std::to_string(new_sst_id));
+  // 4. 更新内存索引
+  ssts[new_sst_id] = new_sst;
 
   // 5. 更新 sst_ids
   l0_sst_ids.push_back(new_sst_id);
+}
 
-  // 6. 清空 memtable
-  memtable.clear();
+void LSMEngine::flush_all() {
+  while (memtable.get_total_size() > 0) {
+    flush();
+  }
 }
 
 std::string LSMEngine::get_sst_path(size_t sst_id) {
-  return data_dir + "/sst_" + std::to_string(sst_id);
+  // sst的文件路径格式为: data_dir/sst_<sst_id>，sst_id格式化为4位数字
+  std::stringstream ss;
+  ss << data_dir << "/sst_" << std::setfill('0') << std::setw(4) << sst_id;
+  return ss.str();
 }
 
 MergeIterator LSMEngine::begin() {

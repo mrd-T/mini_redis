@@ -18,14 +18,17 @@ LSMEngine::LSMEngine(std::string path) : data_dir(path) {
       }
 
       std::string filename = entry.path().filename().string();
-      // SST文件名格式为: sst_{id}.sst
-      if (filename.substr(0, 4) != "sst_" ||
-          filename.substr(filename.length() - 4) != ".sst") {
+      // SST文件名格式为: sst_{id}
+      if (filename.substr(0, 4) != "sst_") {
         continue;
       }
 
       // 提取SST ID
-      std::string id_str = filename.substr(4, filename.length() - 8);
+      std::string id_str =
+          filename.substr(4, filename.length() - 4); // 4 for "sst_"
+      if (id_str.empty()) {
+        continue;
+      }
       size_t sst_id = std::stoull(id_str);
 
       // 加载SST文件

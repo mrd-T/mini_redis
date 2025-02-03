@@ -89,3 +89,10 @@ target("test_sst")
     add_deps("sst")
     add_packages("gtest")
     add_includedirs("include")
+
+target("test_lsm")
+    set_kind("binary")
+    add_files("test/test_lsm.cpp")
+    add_deps("lsm", "memtable", "iterator")  -- Added memtable and iterator dependencies
+    add_packages("gtest")
+    add_includedirs("include")

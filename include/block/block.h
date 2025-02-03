@@ -58,6 +58,7 @@ public:
   std::optional<std::string> get_value_binary(const std::string &key);
   size_t cur_size() const;
   bool is_empty() const;
+  std::optional<size_t> get_idx_binary(const std::string &key);
 
   BlockIterator begin();
 

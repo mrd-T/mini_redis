@@ -1,4 +1,4 @@
-#include "../include/memtable/iterator.h"
+#include "../include/memtable/mem_iterator.h"
 #include "../include/memtable/memtable.h"
 #include "../include/consts.h"
 #include <gtest/gtest.h>

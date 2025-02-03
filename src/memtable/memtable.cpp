@@ -1,6 +1,6 @@
 #include "../../include/memtable/memtable.h"
 #include "../../include/consts.h"
-#include "../../include/memtable/iterator.h"
+#include "../../include/memtable/mem_iterator.h"
 #include "../../include/skiplist/skiplist.h"
 #include <memory>
 #include <mutex>
@@ -49,7 +49,8 @@ std::optional<std::string> MemTable::get(const std::string &key) {
   }
 
   // 都没有找到，返回空
-  // !!! 目前只实现了内存中的 memtable 查询, 还没有实现 SST 的查询 (预计在上层完成, 不会修改此函数 ???)
+  // !!! 目前只实现了内存中的 memtable 查询, 还没有实现 SST 的查询
+  // (预计在上层完成, 不会修改此函数 ???)
   return std::nullopt;
 }
 

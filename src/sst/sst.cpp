@@ -1,4 +1,5 @@
 #include "../../include/sst/sst.h"
+#include "../../include/sst/sst_iterator.h"
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -97,6 +98,14 @@ size_t SST::find_block_idx(const std::string &key) {
   return left;
 }
 
+SstIterator SST::get(const std::string &key) {
+  if (key < first_key || key > last_key) {
+    return this->end();
+  }
+
+  return SstIterator(shared_from_this(), key);
+}
+
 size_t SST::num_blocks() const { return meta_entries.size(); }
 
 std::string SST::get_first_key() const { return first_key; }
@@ -106,6 +115,15 @@ std::string SST::get_last_key() const { return last_key; }
 size_t SST::sst_size() const { return file.size(); }
 
 size_t SST::get_sst_id() const { return sst_id; }
+
+SstIterator SST::begin() { return SstIterator(shared_from_this()); }
+
+SstIterator SST::end() {
+  SstIterator res(shared_from_this());
+  res.m_block_idx = meta_entries.size();
+  res.m_block_it = nullptr;
+  return res;
+}
 
 // **************************************************
 // SSTBuilder

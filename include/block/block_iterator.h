@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../../include/iterator/iterator.h"
 #include <iterator>
 #include <memory>
 #include <optional>
@@ -8,7 +9,7 @@
 
 class Block;
 
-class BlockIterator {
+class BlockIterator : public BaseIterator {
 public:
   // 标准迭代器类型定义
   using iterator_category = std::forward_iterator_tag;
@@ -19,6 +20,8 @@ public:
 
   // 构造函数
   BlockIterator(std::shared_ptr<Block> b, size_t index);
+  BlockIterator(std::shared_ptr<Block> b, const std::string &key);
+  BlockIterator(std::shared_ptr<Block> b);
   BlockIterator() : block(nullptr), current_index(0) {} // end iterator
 
   // 迭代器操作
@@ -27,6 +30,7 @@ public:
   bool operator==(const BlockIterator &other) const;
   bool operator!=(const BlockIterator &other) const;
   value_type operator*() const;
+  bool is_end();
 
 private:
   std::shared_ptr<Block> block;                   // 指向所属的 Block

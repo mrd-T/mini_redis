@@ -11,6 +11,11 @@ target("utils")
     add_files("src/utils/*.cpp")
     add_includedirs("include", {public = true})
 
+target("iterator")
+    set_kind("static")  -- 生成静态库
+    add_files("src/iterator/*.cpp")
+    add_includedirs("include", {public = true})
+
 target("skiplist")
     set_kind("static")  -- 生成静态库
     add_files("src/skiplist/*.cpp")
@@ -19,6 +24,7 @@ target("skiplist")
 target("memtable")
     set_kind("static")  -- 生成静态库
     add_deps("skiplist")
+    add_deps("iterator")
     add_files("src/memtable/*.cpp")
     add_includedirs("include", {public = true})
 

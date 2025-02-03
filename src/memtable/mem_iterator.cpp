@@ -1,23 +1,5 @@
-#include "../../include/memtable/iterator.h"
+#include "../../include/memtable/mem_iterator.h"
 #include <vector>
-
-bool operator<(const SearchItem &a, const SearchItem &b) {
-  if (a.key != b.key) {
-    return a.key < b.key;
-  }
-  return a.mem_idx < b.mem_idx;
-}
-
-bool operator>(const SearchItem &a, const SearchItem &b) {
-  if (a.key != b.key) {
-    return a.key > b.key;
-  }
-  return a.mem_idx > b.mem_idx;
-}
-
-bool operator==(const SearchItem &a, const SearchItem &b) {
-  return a.mem_idx == b.mem_idx && a.key == b.key;
-}
 
 MemTableIterator::MemTableIterator() {}
 
@@ -95,3 +77,5 @@ bool MemTableIterator::operator==(const MemTableIterator &other) const {
 bool MemTableIterator::operator!=(const MemTableIterator &other) const {
   return !(*this == other);
 }
+
+bool MemTableIterator::is_end() const { return items.empty(); }

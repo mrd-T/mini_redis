@@ -9,6 +9,8 @@
 #include <string>
 #include <vector>
 
+class SstIterator;
+
 /**
  * SST文件的结构, 参考自 https://skyzh.github.io/mini-lsm/week1-04-sst.html
  * ------------------------------------------------------------------------
@@ -32,7 +34,7 @@
  数组的哈希值(只包括数组部分, 不包括 num_entries ), 用于校验 metadata 的完整性
  */
 
-class SST {
+class SST : public std::enable_shared_from_this<SST> {
   friend class SSTBuilder;
 
 private:
@@ -56,6 +58,9 @@ public:
   // 找到key所在的block的idx
   size_t find_block_idx(const std::string &key);
 
+  // 根据key返回迭代器
+  SstIterator get(const std::string &key);
+
   // 返回sst中block的数量
   size_t num_blocks() const;
 
@@ -70,6 +75,9 @@ public:
 
   // 返回sst的id
   size_t get_sst_id() const;
+
+  SstIterator begin();
+  SstIterator end();
 };
 
 class SSTBuilder {

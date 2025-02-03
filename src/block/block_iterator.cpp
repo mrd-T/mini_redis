@@ -8,6 +8,19 @@ class Block;
 BlockIterator::BlockIterator(std::shared_ptr<Block> b, size_t index)
     : block(b), current_index(index), cached_value(std::nullopt) {}
 
+BlockIterator::BlockIterator(std::shared_ptr<Block> b, const std::string &key)
+    : block(b), cached_value(std::nullopt) {
+  auto key_idx_ops = block->get_idx_binary(key);
+  if (key_idx_ops.has_value()) {
+    current_index = key_idx_ops.value();
+  } else {
+    throw std::runtime_error("key not found");
+  }
+}
+
+BlockIterator::BlockIterator(std::shared_ptr<Block> b)
+    : block(b), current_index(0), cached_value(std::nullopt) {}
+
 BlockIterator &BlockIterator::operator++() {
   if (block && current_index < block->cur_size()) {
     ++current_index;
@@ -50,3 +63,5 @@ BlockIterator::value_type BlockIterator::operator*() const {
   }
   return *cached_value;
 }
+
+bool BlockIterator::is_end() { return current_index == block->offsets.size(); }

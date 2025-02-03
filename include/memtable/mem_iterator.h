@@ -1,20 +1,11 @@
 #pragma once
 
+#include "../../include/iterator/iterator.h"
 #include "../skiplist/skiplist.h"
 #include "memtable.h"
 #include <queue>
 
-struct SearchItem {
-  std::string key;
-  std::string value;
-  int mem_idx;
-};
-
-bool operator<(const SearchItem &a, const SearchItem &b);
-bool operator>(const SearchItem &a, const SearchItem &b);
-bool operator==(const SearchItem &a, const SearchItem &b);
-
-class MemTableIterator {
+class MemTableIterator : public BaseIterator {
 public:
   MemTableIterator();
   MemTableIterator(const MemTable &memtable);
@@ -23,6 +14,7 @@ public:
   MemTableIterator operator++(int);
   bool operator==(const MemTableIterator &other) const;
   bool operator!=(const MemTableIterator &other) const;
+  bool is_end() const;
 
 private:
   std::priority_queue<SearchItem, std::vector<SearchItem>,

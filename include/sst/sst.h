@@ -1,8 +1,8 @@
 #pragma once
 
-#include "../../include/block/block.h"
-#include "../../include/block/blockmeta.h"
-#include "../../include/utils/files.h"
+#include "../block/block.h"
+#include "../block/blockmeta.h"
+#include "../utils/files.h"
 #include <cstddef>
 #include <cstdint>
 #include <memory>

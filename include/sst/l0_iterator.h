@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../include/iterator/iterator.h"
+#include "../iterator/iterator.h"
 #include "sst_iterator.h"
 #include <queue>
 #include <vector>

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../../include/iterator/iterator.h"
-#include "../../include/sst/sst_iterator.h"
+#include "../iterator/iterator.h"
+#include "../sst/sst_iterator.h"
 
 #include <memory>
 

@@ -29,12 +29,6 @@ BlockIterator &BlockIterator::operator++() {
   return *this;
 }
 
-BlockIterator BlockIterator::operator++(int) {
-  BlockIterator tmp = *this;
-  ++(*this);
-  return tmp;
-}
-
 bool BlockIterator::operator==(const BlockIterator &other) const {
   if (block == nullptr && other.block == nullptr) {
     return true;

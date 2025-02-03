@@ -2,6 +2,7 @@
 
 #include "../../include/memtable/memtable.h"
 #include "../../include/sst/sst.h"
+#include "merge_iterator.h"
 #include <cstddef>
 #include <memory>
 #include <unordered_map>
@@ -22,6 +23,9 @@ public:
   void flush();
 
   std::string get_sst_path(size_t sst_id);
+
+  MergeIterator begin();
+  MergeIterator end();
 };
 
 class LSM {
@@ -31,4 +35,12 @@ private:
 public:
   LSM(std::string path);
   ~LSM();
+
+  std::optional<std::string> get(const std::string &key);
+  void put(const std::string &key, const std::string &value);
+  void remove(const std::string &key);
+
+  using LSMIterator = MergeIterator;
+  LSMIterator begin();
+  LSMIterator end();
 };

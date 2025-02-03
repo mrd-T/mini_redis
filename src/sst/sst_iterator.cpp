@@ -67,7 +67,7 @@ SstIterator &SstIterator::operator++() {
   if (!m_block_it) { // 添加空指针检查
     return *this;
   }
-  (*m_block_it)++;
+  ++(*m_block_it);
   if (m_block_it->is_end()) {
     m_block_idx++;
     if (m_block_idx < m_sst->num_blocks()) {
@@ -81,12 +81,6 @@ SstIterator &SstIterator::operator++() {
     }
   }
   return *this;
-}
-
-SstIterator SstIterator::operator++(int) {
-  SstIterator tmp = *this;
-  ++(*this);
-  return tmp;
 }
 
 bool SstIterator::operator==(const SstIterator &other) const {

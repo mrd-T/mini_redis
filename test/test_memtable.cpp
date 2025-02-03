@@ -1,6 +1,6 @@
-#include "../include/memtable/mem_iterator.h"
-#include "../include/memtable/memtable.h"
 #include "../include/consts.h"
+#include "../include/iterator/iterator.h"
+#include "../include/memtable/memtable.h"
 #include <gtest/gtest.h>
 #include <string>
 #include <vector>

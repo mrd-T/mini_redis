@@ -1,11 +1,11 @@
 #include "../../include/lsm/engine.h"
 #include "../../include/consts.h"
-#include "../../include/memtable/mem_iterator.h"
 #include "../../include/sst/sst.h"
 #include "../../include/sst/sst_iterator.h"
 #include <filesystem>
 #include <vector>
 
+// *********************** LSMEngine ***********************
 LSMEngine::LSMEngine(std::string path) : data_dir(path) {
   // 创建数据目录
   if (!std::filesystem::exists(path)) {
@@ -95,10 +95,38 @@ std::string LSMEngine::get_sst_path(size_t sst_id) {
   return data_dir + "/sst_" + std::to_string(sst_id);
 }
 
-// *********************** LSM
+MergeIterator LSMEngine::begin() {
+  std::vector<SearchItem> item_vec;
+  for (auto &sst_id : l0_sst_ids) {
+    auto sst = ssts[sst_id];
+    for (auto iter = sst->begin(); iter != sst->end(); ++iter) {
+      item_vec.emplace_back(iter.key(), iter.value(), sst_id);
+    }
+  }
+  HeapIterator l0_iter(item_vec);
+
+  auto mem_iter = memtable.begin();
+
+  return MergeIterator(mem_iter, l0_iter);
+}
+
+MergeIterator LSMEngine::end() { return MergeIterator{}; }
+
+// *********************** LSM ***********************
 LSM::LSM(std::string path) : engine(path) {}
 
 LSM::~LSM() {
   // 确保所有数据都已经刷新到磁盘
   engine.flush();
 }
+
+std::optional<std::string> LSM::get(const std::string &key) {
+  return engine.get(key);
+}
+void LSM::put(const std::string &key, const std::string &value) {
+  engine.put(key, value);
+}
+void LSM::remove(const std::string &key) { engine.remove(key); }
+
+LSM::LSMIterator LSM::begin() { return engine.begin(); }
+LSM::LSMIterator LSM::end() { return engine.end(); }

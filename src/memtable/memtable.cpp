@@ -1,6 +1,6 @@
 #include "../../include/memtable/memtable.h"
 #include "../../include/consts.h"
-#include "../../include/memtable/mem_iterator.h"
+#include "../../include/iterator/iterator.h"
 #include "../../include/skiplist/skiplist.h"
 #include <memory>
 #include <mutex>
@@ -8,6 +8,7 @@
 #include <shared_mutex>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 // MemTable implementation using PIMPL idiom
 MemTable::MemTable() : frozen_bytes(0) {
@@ -92,12 +93,28 @@ size_t MemTable::get_total_size() {
   return get_frozen_size() + get_cur_size();
 }
 
-MemTableIterator MemTable::begin() {
+HeapIterator MemTable::begin() {
   std::shared_lock<std::shared_mutex> slock(rx_mtx);
-  return MemTableIterator(*this);
+  std::vector<SearchItem> item_vec;
+
+  for (auto iter = current_table->begin(); iter != current_table->end();
+       iter++) {
+    item_vec.emplace_back(iter.get_key(), iter.get_value(), 0);
+  }
+
+  int level = 1;
+  for (auto ft = frozen_tables.begin(); ft != frozen_tables.end(); ft++) {
+    auto table = *ft;
+    for (auto iter = table->begin(); iter != table->end(); iter++) {
+      item_vec.emplace_back(iter.get_key(), iter.get_value(), level);
+    }
+    level++;
+  }
+
+  return HeapIterator(item_vec);
 }
 
-MemTableIterator MemTable::end() {
+HeapIterator MemTable::end() {
   std::shared_lock<std::shared_mutex> slock(rx_mtx);
-  return MemTableIterator{};
+  return HeapIterator{};
 }

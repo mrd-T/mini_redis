@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../iterator/iterator.h"
 #include "../skiplist/skiplist.h"
 #include <cstddef>
 #include <list>
@@ -10,10 +11,8 @@
 #include <string>
 #include <unordered_map>
 
-class MemTableIterator;
-
 class MemTable {
-  friend class MemTableIterator;
+  friend class HeapIterator;
 
 public:
   MemTable();
@@ -28,8 +27,8 @@ public:
   size_t get_cur_size();
   size_t get_frozen_size();
   size_t get_total_size();
-  MemTableIterator begin();
-  MemTableIterator end();
+  HeapIterator begin();
+  HeapIterator end();
 
 private:
   std::shared_ptr<SkipList> current_table;

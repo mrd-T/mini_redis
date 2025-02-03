@@ -1,3 +1,4 @@
+#pragma once
 #include "../../include/iterator/iterator.h"
 #include "../block/block_iterator.h"
 #include <cstddef>
@@ -5,7 +6,7 @@
 
 class SST;
 
-class SstIterator : public BaseIterator {
+class SstIterator {
   friend SST;
 
 private:
@@ -28,7 +29,7 @@ public:
   std::string value();
 
   SstIterator &operator++();
-  SstIterator operator++(int);
+  SstIterator operator++(int) = delete;
   bool operator==(const SstIterator &other) const;
   bool operator!=(const SstIterator &other) const;
   value_type operator*() const;

@@ -9,7 +9,7 @@
 
 class Block;
 
-class BlockIterator : public BaseIterator {
+class BlockIterator {
 public:
   // 标准迭代器类型定义
   using iterator_category = std::forward_iterator_tag;
@@ -26,7 +26,7 @@ public:
 
   // 迭代器操作
   BlockIterator &operator++();
-  BlockIterator operator++(int);
+  BlockIterator operator++(int) = delete;
   bool operator==(const BlockIterator &other) const;
   bool operator!=(const BlockIterator &other) const;
   value_type operator*() const;

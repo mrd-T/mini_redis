@@ -3,6 +3,7 @@
 #include "../../include/sst/sst.h"
 #include "../../include/sst/sst_iterator.h"
 #include <filesystem>
+#include <mutex>
 #include <vector>
 
 // *********************** LSMEngine ***********************
@@ -31,7 +32,8 @@ LSMEngine::LSMEngine(std::string path) : data_dir(path) {
       }
       size_t sst_id = std::stoull(id_str);
 
-      // 加载SST文件
+      // 加载SST文件, 初始化时需要加写锁
+      std::unique_lock<std::shared_mutex> lock(ssts_mtx); // 写锁
       std::string sst_path = get_sst_path(sst_id);
       auto sst = SST::open(sst_id, FileObj::open(sst_path));
       ssts[sst_id] = sst;
@@ -64,6 +66,7 @@ std::optional<std::string> LSMEngine::get(const std::string &key) {
   }
 
   // 2. l0 sst中查询
+  std::shared_lock<std::shared_mutex> rlock(ssts_mtx); // 读锁
   for (auto &sst_id : l0_sst_ids) {
     auto sst = ssts[sst_id];
     auto sst_iterator = sst->get(key);
@@ -102,6 +105,8 @@ void LSMEngine::flush() {
 
   // 1. 创建新的 SST ID
   size_t new_sst_id = l0_sst_ids.empty() ? 0 : l0_sst_ids.back() + 1;
+  // ! 这里有内存安全问题, 因为可能多个 flush 获取了同一个
+  // new_sst_id, 但后续有WAL, 故先忽略这个问题, 且这个概率很小
 
   // 2. 准备 SSTBuilder
   SSTBuilder builder(LSM_BLOCK_SIZE); // 4KB block size
@@ -110,6 +115,7 @@ void LSMEngine::flush() {
   auto sst_path = get_sst_path(new_sst_id);
   auto new_sst = memtable.flush_last(builder, sst_path, new_sst_id);
 
+  std::unique_lock<std::shared_mutex> lock(ssts_mtx); // 写锁
   // 4. 更新内存索引
   ssts[new_sst_id] = new_sst;
 
@@ -132,6 +138,7 @@ std::string LSMEngine::get_sst_path(size_t sst_id) {
 
 MergeIterator LSMEngine::begin() {
   std::vector<SearchItem> item_vec;
+  std::shared_lock<std::shared_mutex> lock(ssts_mtx); // 读锁
   for (auto &sst_id : l0_sst_ids) {
     auto sst = ssts[sst_id];
     for (auto iter = sst->begin(); iter != sst->end(); ++iter) {

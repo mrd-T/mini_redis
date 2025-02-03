@@ -13,6 +13,7 @@ public:
   MemTable memtable;
   std::list<size_t> l0_sst_ids;
   std::unordered_map<size_t, std::shared_ptr<SST>> ssts;
+  std::shared_mutex ssts_mtx;
 
   LSMEngine(std::string path);
   ~LSMEngine();

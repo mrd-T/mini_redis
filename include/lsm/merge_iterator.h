@@ -6,10 +6,16 @@
 #include <memory>
 
 class MergeIterator {
+  using value_type = std::pair<std::string, std::string>;
+  using pointer = value_type *;
+
 private:
   HeapIterator it_a;
   HeapIterator it_b;
   bool choose_a = false;
+  mutable std::shared_ptr<value_type> current; // 用于存储当前元素
+
+  void update_current() const;
 
 public:
   MergeIterator();
@@ -22,4 +28,5 @@ public:
   MergeIterator &operator++();
   bool operator==(const MergeIterator &other) const;
   bool operator!=(const MergeIterator &other) const;
+  pointer operator->() const;
 };

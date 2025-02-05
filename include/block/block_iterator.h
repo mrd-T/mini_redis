@@ -25,6 +25,7 @@ public:
   BlockIterator() : block(nullptr), current_index(0) {} // end iterator
 
   // 迭代器操作
+  pointer operator->() const;
   BlockIterator &operator++();
   BlockIterator operator++(int) = delete;
   bool operator==(const BlockIterator &other) const;
@@ -36,4 +37,6 @@ private:
   std::shared_ptr<Block> block;                   // 指向所属的 Block
   size_t current_index;                           // 当前位置的索引
   mutable std::optional<value_type> cached_value; // 缓存当前值
+
+  void update_current() const;
 };

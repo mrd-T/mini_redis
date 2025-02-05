@@ -35,7 +35,12 @@ HeapIterator::HeapIterator(std::vector<SearchItem> item_vec) {
   }
 }
 
-std::pair<std::string, std::string> HeapIterator::operator*() const {
+HeapIterator::pointer HeapIterator::operator->() const {
+  update_current();
+  return current.get();
+}
+
+HeapIterator::value_type HeapIterator::operator*() const {
   return std::make_pair(items.top().key, items.top().value);
 }
 
@@ -79,3 +84,11 @@ bool HeapIterator::operator!=(const HeapIterator &other) const {
 }
 
 bool HeapIterator::is_end() const { return items.empty(); }
+
+void HeapIterator::update_current() const {
+  if (!items.empty()) {
+    current = std::make_shared<value_type>(items.top().key, items.top().value);
+  } else {
+    current.reset();
+  }
+}

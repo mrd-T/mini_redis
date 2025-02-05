@@ -117,8 +117,8 @@ TEST_F(LSMTest, IteratorOperations) {
   auto ref_it = reference.begin();
 
   while (it != lsm.end() && ref_it != reference.end()) {
-    EXPECT_EQ((*it).first, ref_it->first);
-    EXPECT_EQ((*it).second, ref_it->second);
+    EXPECT_EQ(it->first, ref_it->first);
+    EXPECT_EQ(it->second, ref_it->second);
     ++it;
     ++ref_it;
   }

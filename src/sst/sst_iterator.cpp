@@ -53,14 +53,14 @@ std::string SstIterator::key() {
   if (!m_block_it) {
     throw std::runtime_error("Iterator is invalid");
   }
-  return (**m_block_it).first;
+  return (*m_block_it)->second;
 }
 
 std::string SstIterator::value() {
   if (!m_block_it) {
     throw std::runtime_error("Iterator is invalid");
   }
-  return (**m_block_it).second;
+  return (*m_block_it)->second;
 }
 
 SstIterator &SstIterator::operator++() {
@@ -108,4 +108,15 @@ SstIterator::value_type SstIterator::operator*() const {
     throw std::runtime_error("Iterator is invalid");
   }
   return (**m_block_it);
+}
+
+SstIterator::pointer SstIterator::operator->() const {
+  update_current();
+  return &(*cached_value);
+}
+
+void SstIterator::update_current() const {
+  if (!cached_value && m_block_it && !m_block_it->is_end()) {
+    cached_value = *(*m_block_it);
+  }
 }

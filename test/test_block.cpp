@@ -187,19 +187,19 @@ TEST_F(BlockTest, IteratorTest) {
 
   // 4. 测试迭代器的比较和移动
   auto it = block->begin();
-  EXPECT_EQ((*it).first, "key000");
+  EXPECT_EQ(it->first, "key000");
   ++it;
-  EXPECT_EQ((*it).first, "key001");
+  EXPECT_EQ(it->first, "key001");
   ++it;
-  EXPECT_EQ((*it).first, "key002");
+  EXPECT_EQ(it->first, "key002");
 
   // 5. 测试编码后的迭代
   auto encoded = block->encode();
   auto decoded_block = Block::decode(encoded);
   count = 0;
   for (auto it = decoded_block->begin(); it != decoded_block->end(); ++it) {
-    EXPECT_EQ((*it).first, test_data[count].first);
-    EXPECT_EQ((*it).second, test_data[count].second);
+    EXPECT_EQ(it->first, test_data[count].first);
+    EXPECT_EQ(it->second, test_data[count].second);
     count++;
   }
 }

@@ -15,11 +15,11 @@ bool MergeIterator::choose_it_a() {
   if (it_b.is_end()) {
     return true;
   }
-  return (*it_a).first < (*it_b).first; // 比较 key
+  return it_a->first < it_b->first; // 比较 key
 }
 
 void MergeIterator::skip_it_b() {
-  if (!it_a.is_end() && !it_b.is_end() && (*it_b).first == (*it_a).first) {
+  if (!it_a.is_end() && !it_b.is_end() && it_b->first == it_b->first) {
     ++it_b;
   }
 }
@@ -51,4 +51,17 @@ bool MergeIterator::operator==(const MergeIterator &other) const {
 
 bool MergeIterator::operator!=(const MergeIterator &other) const {
   return !(*this == other);
+}
+
+MergeIterator::pointer MergeIterator::operator->() const {
+  update_current();
+  return current.get();
+}
+
+void MergeIterator::update_current() const {
+  if (choose_a) {
+    current = std::make_shared<value_type>(*it_a);
+  } else {
+    current = std::make_shared<value_type>(*it_b);
+  }
 }

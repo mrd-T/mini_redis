@@ -21,6 +21,11 @@ BlockIterator::BlockIterator(std::shared_ptr<Block> b, const std::string &key)
 BlockIterator::BlockIterator(std::shared_ptr<Block> b)
     : block(b), current_index(0), cached_value(std::nullopt) {}
 
+BlockIterator::pointer BlockIterator::operator->() const {
+  update_current();
+  return &(*cached_value);
+}
+
 BlockIterator &BlockIterator::operator++() {
   if (block && current_index < block->cur_size()) {
     ++current_index;
@@ -59,3 +64,11 @@ BlockIterator::value_type BlockIterator::operator*() const {
 }
 
 bool BlockIterator::is_end() { return current_index == block->offsets.size(); }
+
+void BlockIterator::update_current() const {
+  if (!cached_value && current_index < block->offsets.size()) {
+    size_t offset = block->get_offset_at(current_index);
+    cached_value =
+        std::make_pair(block->get_key_at(offset), block->get_value_at(offset));
+  }
+}

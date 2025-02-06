@@ -12,6 +12,7 @@
 #include <string>
 #include <unordered_map>
 
+class BlockCache;
 class SST;
 class SSTBuilder;
 
@@ -27,7 +28,8 @@ public:
   void remove(const std::string &key);
   void clear();
   std::shared_ptr<SST> flush_last(SSTBuilder &builder, std::string &sst_path,
-                                  size_t sst_id);
+                                  size_t sst_id,
+                                  std::shared_ptr<BlockCache> block_cache);
   void frozen_cur_table();
   size_t get_cur_size();
   size_t get_frozen_size();

@@ -28,11 +28,11 @@ TEST(MemTableTest, RemoveOperations) {
   // 插入并删除
   memtable.put("key1", "value1");
   memtable.remove("key1");
-  EXPECT_FALSE(memtable.get("key1").has_value());
+  EXPECT_TRUE(memtable.get("key1").value().empty());
 
   // 删除不存在的key
   memtable.remove("nonexistent");
-  EXPECT_FALSE(memtable.get("nonexistent").has_value());
+  EXPECT_TRUE(memtable.get("nonexistent").value().empty());
 }
 
 // 测试冻结表操作
@@ -184,7 +184,7 @@ TEST(MemTableTest, IteratorComplexOperations) {
   // 验证被删除的key确实不存在
   bool has_key3 = false;
   auto res = memtable.get("key3");
-  EXPECT_FALSE(res.has_value());
+  EXPECT_TRUE(res.value().empty());
 }
 
 TEST(MemTableTest, ConcurrentOperations) {

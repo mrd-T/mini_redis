@@ -110,6 +110,13 @@ target("test_lsm")
     add_packages("gtest")
     add_includedirs("include")
 
+target("test_block_cache")
+    set_kind("binary")
+    add_files("test/test_block_cache.cpp")
+    add_deps("block")
+    add_includedirs("include")
+    add_packages("gtest")
+
 -- 定义案例
 target("example")
     set_kind("binary")

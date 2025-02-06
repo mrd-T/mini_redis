@@ -32,10 +32,14 @@ LSMEngine::LSMEngine(std::string path) : data_dir(path) {
       }
       size_t sst_id = std::stoull(id_str);
 
+      // 初始化 block_cahce
+      block_cache = std::make_shared<BlockCache>(LSMmm_BLOCK_CACHE_CAPACITY,
+                                                 LSMmm_BLOCK_CACHE_K);
+
       // 加载SST文件, 初始化时需要加写锁
       std::unique_lock<std::shared_mutex> lock(ssts_mtx); // 写锁
       std::string sst_path = get_sst_path(sst_id);
-      auto sst = SST::open(sst_id, FileObj::open(sst_path));
+      auto sst = SST::open(sst_id, FileObj::open(sst_path), block_cache);
       ssts[sst_id] = sst;
 
       // 所有加载的SST都属于L0层
@@ -60,7 +64,7 @@ std::optional<std::string> LSMEngine::get(const std::string &key) {
       // 值存在且不为空（没有被删除）
       return value;
     } else {
-      // 空值表示被删除了
+      // memtable返回的kv的value为空值表示被删除了
       return std::nullopt;
     }
   }
@@ -113,7 +117,8 @@ void LSMEngine::flush() {
 
   // 3. 将 memtable 中最旧的表写入 SST
   auto sst_path = get_sst_path(new_sst_id);
-  auto new_sst = memtable.flush_last(builder, sst_path, new_sst_id);
+  auto new_sst =
+      memtable.flush_last(builder, sst_path, new_sst_id, block_cache);
 
   std::unique_lock<std::shared_mutex> lock(ssts_mtx); // 写锁
   // 4. 更新内存索引

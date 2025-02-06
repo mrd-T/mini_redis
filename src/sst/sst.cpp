@@ -11,10 +11,12 @@
 // SST
 // **************************************************
 
-std::shared_ptr<SST> SST::open(size_t sst_id, FileObj file) {
+std::shared_ptr<SST> SST::open(size_t sst_id, FileObj file,
+                               std::shared_ptr<BlockCache> block_cache) {
   auto sst = std::make_shared<SST>();
   sst->sst_id = sst_id;
   sst->file = std::move(file);
+  sst->block_cache = block_cache;
 
   // 读取文件末尾的元数据块
   // 1. 读取元数据块的偏移量（最后8字节）
@@ -41,16 +43,16 @@ std::shared_ptr<SST> SST::open(size_t sst_id, FileObj file) {
   return sst;
 }
 
-std::shared_ptr<SST>
-SST::create_sst_with_meta_only(size_t sst_id, size_t file_size,
-                               const std::string &first_key,
-                               const std::string &last_key) {
+std::shared_ptr<SST> SST::create_sst_with_meta_only(
+    size_t sst_id, size_t file_size, const std::string &first_key,
+    const std::string &last_key, std::shared_ptr<BlockCache> block_cache) {
   auto sst = std::make_shared<SST>();
   sst->file.set_size(file_size);
   sst->sst_id = sst_id;
   sst->first_key = first_key;
   sst->last_key = last_key;
   sst->meta_block_offset = 0;
+  sst->block_cache = block_cache;
 
   return sst;
 }
@@ -58,6 +60,16 @@ SST::create_sst_with_meta_only(size_t sst_id, size_t file_size,
 std::shared_ptr<Block> SST::read_block(size_t block_idx) {
   if (block_idx >= meta_entries.size()) {
     throw std::out_of_range("Block index out of range");
+  }
+
+  // 先从缓存中查找
+  if (block_cache != nullptr) {
+    auto cache_ptr = block_cache->get(this->sst_id, block_idx);
+    if (cache_ptr != nullptr) {
+      return cache_ptr;
+    }
+  } else {
+    throw std::runtime_error("Block cache not set");
   }
 
   const auto &meta = meta_entries[block_idx];
@@ -72,7 +84,15 @@ std::shared_ptr<Block> SST::read_block(size_t block_idx) {
 
   // 读取block数据
   auto block_data = file.read_to_slice(meta.offset, block_size);
-  return Block::decode(block_data, true);
+  auto block_res = Block::decode(block_data, true);
+
+  // 更新缓存
+  if (block_cache != nullptr) {
+    block_cache->put(this->sst_id, block_idx, block_res);
+  } else {
+    throw std::runtime_error("Block cache not set");
+  }
+  return block_res;
 }
 
 size_t SST::find_block_idx(const std::string &key) {
@@ -184,7 +204,9 @@ void SSTBuilder::finish_block() {
          sizeof(uint32_t));
 }
 
-std::shared_ptr<SST> SSTBuilder::build(size_t sst_id, const std::string &path) {
+std::shared_ptr<SST>
+SSTBuilder::build(size_t sst_id, const std::string &path,
+                  std::shared_ptr<BlockCache> block_cache) {
   // 完成最后一个block
   if (!block.is_empty()) {
     finish_block();
@@ -226,6 +248,7 @@ std::shared_ptr<SST> SSTBuilder::build(size_t sst_id, const std::string &path) {
   res->last_key = meta_entries.back().last_key;
   res->meta_block_offset = meta_offset;
   res->meta_entries = std::move(meta_entries);
+  res->block_cache = block_cache;
 
   return res;
 }

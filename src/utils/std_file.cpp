@@ -23,6 +23,7 @@ bool StdFile::create(const std::string &filename, std::vector<uint8_t> &buf) {
 
 void StdFile::close() {
   if (file_.is_open()) {
+    sync();
     file_.close();
   }
 }

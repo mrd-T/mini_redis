@@ -12,6 +12,8 @@
 #include <utility>
 #include <vector>
 
+class BlockCache;
+
 // MemTable implementation using PIMPL idiom
 MemTable::MemTable() : frozen_bytes(0) {
   current_table = std::make_shared<SkipList>();
@@ -29,25 +31,15 @@ std::optional<std::string> MemTable::get(const std::string &key) {
   auto result = current_table->get(key);
   if (result.has_value()) {
     auto data = result.value();
-    if (!data.empty()) {
-      return data;
-    } else {
-      // 空值表示被删除了
-      return std::nullopt;
-    }
+    // 只要找到了 key, 不管 value 是否为空都返回
+    return data;
   }
 
   // 如果当前memtable中没有找到，检查frozen memtable
   for (auto &tabe : frozen_tables) {
     auto result = tabe->get(key);
     if (result.has_value()) {
-      auto data = result.value();
-      if (!data.empty()) {
-        return data;
-      } else {
-        // 空值表示被删除了
-        return std::nullopt;
-      }
+      return result;
     }
   }
 
@@ -68,9 +60,9 @@ void MemTable::clear() {
 }
 
 // 将最老的 memtable 写入 SST, 并返回控制类
-std::shared_ptr<SST> MemTable::flush_last(SSTBuilder &builder,
-                                          std::string &sst_path,
-                                          size_t sst_id) {
+std::shared_ptr<SST>
+MemTable::flush_last(SSTBuilder &builder, std::string &sst_path, size_t sst_id,
+                     std::shared_ptr<BlockCache> block_cache) {
   // 由于 flush 后需要移除最老的 memtable, 因此需要加写锁
   std::unique_lock<std::shared_mutex> lock(rx_mtx);
 
@@ -95,7 +87,7 @@ std::shared_ptr<SST> MemTable::flush_last(SSTBuilder &builder,
   for (auto &[k, v] : flush_data) {
     builder.add(k, v);
   }
-  auto sst = builder.build(sst_id, sst_path);
+  auto sst = builder.build(sst_id, sst_path, block_cache);
   return sst;
 }
 

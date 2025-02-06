@@ -1,6 +1,7 @@
 #pragma once
 
 #include "mmap_file.h"
+#include "std_file.h"
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -9,7 +10,7 @@
 
 class FileObj {
 private:
-  std::unique_ptr<MmapFile> m_file;
+  std::unique_ptr<StdFile> m_file;
   size_t m_size;
 
 public:

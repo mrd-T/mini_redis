@@ -3,6 +3,7 @@
 #include "../iterator/iterator.h"
 #include "../skiplist/skiplist.h"
 #include <cstddef>
+#include <iostream>
 #include <list>
 #include <memory>
 #include <mutex>

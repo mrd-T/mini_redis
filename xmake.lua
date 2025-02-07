@@ -5,6 +5,9 @@ set_languages("c++20")
 
 add_rules("mode.debug", "mode.release")
 add_requires("gtest") -- 添加gtest依赖
+-- 添加Muduo库
+add_requires("muduo")
+
 
 target("utils")
     set_kind("static")  -- 生成静态库
@@ -23,8 +26,7 @@ target("skiplist")
 
 target("memtable")
     set_kind("static")  -- 生成静态库
-    add_deps("skiplist")
-    add_deps("iterator")
+    add_deps("skiplist","iterator")
     add_deps("sst")
     add_files("src/memtable/*.cpp")
     add_includedirs("include", {public = true})
@@ -36,15 +38,20 @@ target("block")
 
 target("sst")
     set_kind("static")  -- 生成静态库
-    add_deps("block")
-    add_deps("utils")
+    add_deps("block", "utils")
     add_files("src/sst/*.cpp")
     add_includedirs("include", {public = true})
 
 target("lsm")
     set_kind("static")  -- 生成静态库
-    add_deps("sst")
+    add_deps("sst", "memtable")
     add_files("src/lsm/*.cpp")
+    add_includedirs("include", {public = true})
+
+target("redis")
+    set_kind("static")  -- 生成静态库
+    add_deps("lsm")
+    add_files("src/redis_wrapper/*.cpp")
     add_includedirs("include", {public = true})
 
 -- 定义动态链接库目标
@@ -117,10 +124,26 @@ target("test_block_cache")
     add_includedirs("include")
     add_packages("gtest")
 
--- 定义案例
+target("test_redis")
+    set_kind("binary")
+    add_files("test/test_redis.cpp")
+    add_deps("redis", "memtable", "iterator")  -- Added memtable and iterator dependencies
+    add_includedirs("include")
+    add_packages("gtest")
+
+-- 定义 示例
 target("example")
     set_kind("binary")
     add_files("example/main.cpp")
     add_deps("lsm_shared")
     add_includedirs("include", {public = true})
+    set_targetdir("$(buildir)/bin")
+
+-- 定义server
+target("server")
+    set_kind("binary")
+    add_files("server/src/*.cpp")
+    add_deps("redis")
+    add_includedirs("include", {public = true})
+    add_packages("muduo")
     set_targetdir("$(buildir)/bin")

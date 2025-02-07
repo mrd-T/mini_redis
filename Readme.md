@@ -1,4 +1,4 @@
-`Toni-LSM` is a personal toy project to implement a simple kv database from scratch, using lsm-tree as the storage engine. The project manager uses [xmake](https://xmake.io/). The project is inspired by [mini-lsm](https://github.com/skyzh/mini-lsm), [tinykv](https://github.com/talent-plan/tinykv) and [leveldb](https://github.com/google/leveldb).
+`Toni-LSM` is a personal toy project to implement a simple kv database from scratch, using lsm-tree as the storage engine. The project manager uses [xmake](https://xmake.io/). The project is inspired by [mini-lsm](https://github.com/skyzh/mini-lsm), [tinykv](https://github.com/talent-plan/tinykv) and [leveldb](https://github.com/google/leveldb). The project is partly compatible with the [Redis Resp protocol](https://redis.io/docs/latest/develop/reference/protocol-spec/), so it can be used as a redis backend and relpace `redis-server`(Just for fun).
 
 The developing posts can be found in my [blog](https://tonixwd.github.io/categories/%E9%A1%B9%E7%9B%AE/) or [zhihu](https://www.zhihu.com/column/c_1867534978344161280).
 
@@ -99,3 +99,21 @@ xmake install --root lsm_shared
 - [ ] Transaction
   - [ ] MVCC
   - [ ] Snapshot
+- [ ] Redis
+  - [x] Fundamental KV Operations
+    - [x] set
+    - [x] get
+    - [x] ttl
+    - [x] expire
+  - [x] Hash Operations
+    - [x] hset
+    - [x] hget
+    - [x] hkeys
+    - [x] hdel
+  - [x] List Operations
+    - [x] lpush/rpush
+    - [x] lpop/rpop
+    - [x] llen
+    - [x] lrange
+  - [ ] Set
+  - [ ] Sorted Set

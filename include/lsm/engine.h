@@ -5,6 +5,7 @@
 #include "merge_iterator.h"
 #include <cstddef>
 #include <memory>
+#include <string>
 #include <unordered_map>
 
 class LSMEngine {

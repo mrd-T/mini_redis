@@ -11,3 +11,10 @@
 
 #define LSMmm_BLOCK_CACHE_CAPACITY 1024 // 缓存池的块缓存容量
 #define LSMmm_BLOCK_CACHE_K 8           // 缓存池的LRU-K的K值
+
+// Redis HEADER
+#define REDIS_EXPIRE_HEADER "REDIS_EXPIRE_"          // 过期时间的前缀
+#define REDIS_HASH_VALUE_PREFFIX "REDIS_HASH_VALUE_" // 哈希表值的前缀
+#define REDIS_FIELD_PREFIX "REDIS_FIELD_"            // 哈希表字段的前缀
+#define REDIS_FIELD_SEPARATOR '$' // 哈希表字段的分隔符
+#define REDIS_LIST_SEPARATOR '#'  // 链表元素的分隔符

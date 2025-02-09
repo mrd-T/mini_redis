@@ -2,9 +2,11 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 /***
@@ -56,11 +58,21 @@ public:
   size_t get_offset_at(size_t idx) const;
   bool add_entry(const std::string &key, const std::string &value);
   std::optional<std::string> get_value_binary(const std::string &key);
+
   size_t cur_size() const;
   bool is_empty() const;
   std::optional<size_t> get_idx_binary(const std::string &key);
 
+  // 按照谓词返回迭代器, 左闭右开
+  std::optional<
+      std::pair<std::shared_ptr<BlockIterator>, std::shared_ptr<BlockIterator>>>
+  get_monotony_predicate_iters(std::function<bool(const std::string &)> func);
+
   BlockIterator begin();
+
+  std::optional<
+      std::pair<std::shared_ptr<BlockIterator>, std::shared_ptr<BlockIterator>>>
+  iters_preffix(const std::string &preffix);
 
   BlockIterator end();
 };

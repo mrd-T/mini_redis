@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 class SstIterator;
@@ -37,6 +38,10 @@ class SstIterator;
 
 class SST : public std::enable_shared_from_this<SST> {
   friend class SSTBuilder;
+  friend std::optional<std::pair<SstIterator, SstIterator>>
+  sst_iters_monotony_predicate(
+      std::shared_ptr<SST> sst,
+      std::function<bool(const std::string &)> predicate);
 
 private:
   FileObj file;
@@ -78,6 +83,10 @@ public:
 
   // 返回sst的id
   size_t get_sst_id() const;
+
+  // TODO: 单调谓词查询 (这里的单调谓词主要指 范围查询 和 前缀查询)
+  std::optional<std::pair<SstIterator, SstIterator>>
+  iters_monotony_predicate(std::function<bool(const std::string &)> predicate);
 
   SstIterator begin();
   SstIterator end();

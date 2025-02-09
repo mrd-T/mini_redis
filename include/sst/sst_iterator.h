@@ -2,11 +2,23 @@
 #include "../block/block_iterator.h"
 #include "../iterator/iterator.h"
 #include <cstddef>
+#include <functional>
 #include <memory>
+#include <utility>
 
+class SstIterator;
 class SST;
 
+std::optional<std::pair<SstIterator, SstIterator>> sst_iters_monotony_predicate(
+    std::shared_ptr<SST> sst,
+    std::function<bool(const std::string &)> predicate);
+
 class SstIterator {
+  friend std::optional<std::pair<SstIterator, SstIterator>>
+  sst_iters_monotony_predicate(
+      std::shared_ptr<SST> sst,
+      std::function<bool(const std::string &)> predicate);
+
   friend SST;
 
   using value_type = std::pair<std::string, std::string>;
@@ -20,12 +32,19 @@ private:
   mutable std::optional<value_type> cached_value; // 缓存当前值
 
   void update_current() const;
+  void set_block_idx(size_t idx);
+  void set_block_it(std::shared_ptr<BlockIterator> it);
 
 public:
   // 创建迭代器, 并移动到第一个key
   SstIterator(std::shared_ptr<SST> sst);
   // 创建迭代器, 并移动到第指定key
   SstIterator(std::shared_ptr<SST> sst, const std::string &key);
+
+  // 创建迭代器, 并移动到第指定前缀的首端或者尾端
+  static std::optional<std::pair<SstIterator, SstIterator>>
+  iters_monotony_predicate(std::shared_ptr<SST> sst,
+                           std::function<bool(const std::string &)> predicate);
 
   void seek_first();
   void seek(const std::string &key);

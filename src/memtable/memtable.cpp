@@ -138,3 +138,25 @@ HeapIterator MemTable::end() {
   std::shared_lock<std::shared_mutex> slock(rx_mtx);
   return HeapIterator{};
 }
+
+HeapIterator MemTable::iters_preffix(const std::string &preffix) {
+  std::shared_lock<std::shared_mutex> slock(rx_mtx);
+  std::vector<SearchItem> item_vec;
+
+  for (auto iter = current_table->begin_preffix(preffix);
+       iter != current_table->end_preffix(preffix); iter++) {
+    item_vec.emplace_back(iter.get_key(), iter.get_value(), 0);
+  }
+
+  int level = 1;
+  for (auto ft = frozen_tables.begin(); ft != frozen_tables.end(); ft++) {
+    auto table = *ft;
+    for (auto iter = table->begin_preffix(preffix);
+         iter != table->end_preffix(preffix); iter++) {
+      item_vec.emplace_back(iter.get_key(), iter.get_value(), level);
+    }
+    level++;
+  }
+
+  return HeapIterator(item_vec);
+}

@@ -1,5 +1,6 @@
 #include "../include/consts.h"
 #include "../include/sst/sst.h"
+#include "../include/sst/sst_iterator.h"
 #include <filesystem>
 #include <gtest/gtest.h>
 
@@ -100,7 +101,7 @@ TEST_F(SSTTest, KeySearch) {
   EXPECT_EQ(*value, "value50");
 
   // 测试边界情况
-  EXPECT_THROW(sst->find_block_idx("key999"), std::runtime_error);
+  EXPECT_EQ(sst->find_block_idx("key999"), -1);
 }
 
 // 测试元数据
@@ -184,6 +185,40 @@ TEST_F(SSTTest, LargeSST) {
         std::to_string(i);
     EXPECT_EQ(*value, expected_value);
   }
+}
+
+TEST_F(SSTTest, LargeSSTPredicate) {
+  SSTBuilder builder(4096); // 4KB blocks
+  auto block_cache = std::make_shared<BlockCache>(LSMmm_BLOCK_CACHE_CAPACITY,
+                                                  LSMmm_BLOCK_CACHE_K);
+
+  // 添加大量数据
+  for (int i = 0; i < 1000; i++) {
+    // key格式：key000, key001, ..., key999
+    std::string key = "key" + std::string(3 - std::to_string(i).length(), '0') +
+                      std::to_string(i);
+
+    // value格式：val000, val001, ..., val999
+    std::string value = "val" +
+                        std::string(3 - std::to_string(i).length(), '0') +
+                        std::to_string(i);
+
+    builder.add(key, value);
+  }
+
+  auto sst = builder.build(1, "test_data/large.sst", block_cache);
+
+  auto result = sst_iters_monotony_predicate(sst, [](const std::string &key) {
+    return key >= "key100" && key <= "key500";
+  });
+  EXPECT_TRUE(result.has_value());
+  auto [iter_begin, iter_end] = result.value();
+  EXPECT_EQ(iter_begin.key(), "key100");
+  for (int i = 0; i < 100; i++) {
+    ++iter_begin;
+  }
+  EXPECT_EQ(iter_begin.key(), "key200");
+  EXPECT_EQ(iter_end.key(), "key501");
 }
 
 int main(int argc, char **argv) {

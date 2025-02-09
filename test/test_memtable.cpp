@@ -3,6 +3,7 @@
 #include "../include/memtable/memtable.h"
 #include <gtest/gtest.h>
 #include <string>
+#include <utility>
 #include <vector>
 
 // 测试基本的插入和查询操作
@@ -355,6 +356,50 @@ TEST(MemTableTest, ConcurrentOperations) {
   // 基本正确性检查
   EXPECT_GT(memtable.get_total_size(), 0);             // 总大小应该大于0
   EXPECT_LE(final_size, num_writers * num_operations); // 大小不应超过最大可能值
+}
+
+TEST(MemTableTest, PreffixIter) {
+  MemTable memtable;
+
+  // 在当前表中插入数据
+  memtable.put("abc", "3");
+  memtable.put("abcde", "5");
+  memtable.put("abcd", "4");
+  memtable.put("xxx", "-1");
+  memtable.put("abcdef", "6");
+  memtable.put("yyyy", "-1");
+
+  // 冻结当前表
+  memtable.frozen_cur_table();
+
+  // 在新的当前表中插入数据
+  memtable.put("zz", "-1");
+  memtable.put("abcdefg", "7");
+  memtable.remove("abcd");
+  memtable.put("abcdefgh", "8");
+  memtable.put("ab", "2");
+  memtable.put("wwwwww", "-1");
+
+  // 冻结当前表
+  memtable.frozen_cur_table();
+
+  // 在新的当前表中插入数据
+  memtable.put("mmmmm", "-1");
+  memtable.remove("ab");
+  memtable.put("abc", "33");
+
+  int id = 0;
+  std::vector<std::pair<std::string, std::string>> answer{{"abc", "33"},
+                                                          {"abcde", "5"},
+                                                          {"abcdef", "6"},
+                                                          {"abcdefg", "7"},
+                                                          {"abcdefgh", "8"}};
+
+  for (auto it = memtable.iters_preffix("ab"); !it.is_end(); ++it) {
+    EXPECT_EQ(it->first, answer[id].first);
+    EXPECT_EQ(it->second, answer[id].second);
+    id++;
+  }
 }
 
 int main(int argc, char **argv) {

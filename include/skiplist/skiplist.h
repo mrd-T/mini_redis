@@ -1,12 +1,14 @@
 #pragma once
 
 #include <cstddef>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
 #include <random>
 #include <shared_mutex>
 #include <string>
+#include <utility>
 #include <vector>
 
 // ************************ SkipListNode ************************
@@ -15,9 +17,14 @@ struct SkipListNode {
   std::string value; // 节点存储的值
   std::vector<std::shared_ptr<SkipListNode>>
       forward; // 指向不同层级的下一个节点的指针数组
-
+  std::vector<std::weak_ptr<SkipListNode>>
+      backward; // 指向不同层级的下一个节点的指针数组
   SkipListNode(const std::string &k, const std::string &v, int level)
-      : key(k), value(v), forward(level, nullptr) {}
+      : key(k), value(v), forward(level, nullptr),
+        backward(level, std::weak_ptr<SkipListNode>()) {}
+  void set_backward(int level, std::shared_ptr<SkipListNode> node) {
+    backward[level] = std::weak_ptr<SkipListNode>(node);
+  }
 };
 
 // ************************ SkipListIterator ************************
@@ -50,6 +57,7 @@ public:
   std::string get_value() const;
 
   bool is_valid() const;
+  bool is_end() const;
 
 private:
   std::shared_ptr<SkipListNode> current;
@@ -96,6 +104,11 @@ public:
   void clear(); // 清空跳表，释放内存
 
   SkipListIterator begin();
+  SkipListIterator begin_preffix(const std::string &preffix);
 
   SkipListIterator end();
+  SkipListIterator end_preffix(const std::string &preffix);
+
+  std::optional<std::pair<SkipListIterator, SkipListIterator>>
+  iters_monotony_predicate(std::function<int(const std::string &)> predicate);
 };

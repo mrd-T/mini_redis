@@ -34,6 +34,7 @@ std::string SkipListIterator::get_key() const { return current->key; }
 std::string SkipListIterator::get_value() const { return current->value; }
 
 bool SkipListIterator::is_valid() const { return !current->value.empty(); }
+bool SkipListIterator::is_end() const { return current == nullptr; }
 
 // ************************ SkipList ************************
 // 构造函数
@@ -98,6 +99,14 @@ void SkipList::put(const std::string &key, const std::string &value) {
     new_node->forward[i] = update[i]->forward[i];
     update[i]->forward[i] = new_node;
   }
+
+  // 更新 backward 指针
+  for (int i = 0; i < new_level; ++i) {
+    if (new_node->forward[i]) {
+      new_node->forward[i]->set_backward(i, new_node);
+    }
+    new_node->set_backward(i, update[i]);
+  }
 }
 
 // 查找键值对
@@ -131,7 +140,7 @@ void SkipList::remove(const std::string &key) {
   auto current = head;
 
   // 从最高层开始查找目标节点
-  for (int i = current_level - 1; i >= 0; --i) {
+  for (int i = current->forward.size() - 1; i >= 0; --i) {
     while (current->forward[i] && current->forward[i]->key < key) {
       current = current->forward[i];
     }
@@ -143,12 +152,19 @@ void SkipList::remove(const std::string &key) {
 
   // 如果找到目标节点，执行删除操作
   if (current && current->key == key) {
-    // 更新每一层的指针，跳过目标节点
+    // 更新每一层的 forward 指针，跳过目标节点
     for (int i = 0; i < current_level; ++i) {
       if (update[i]->forward[i] != current) {
         break;
       }
       update[i]->forward[i] = current->forward[i];
+    }
+
+    // 更新 backward 指针
+    for (int i = 0; i < current->backward.size() && i < current_level; ++i) {
+      if (current->forward[i]) {
+        current->forward[i]->set_backward(i, update[i]);
+      }
     }
 
     // 更新跳表的内存大小
@@ -193,4 +209,154 @@ SkipListIterator SkipList::begin() {
 
 SkipListIterator SkipList::end() {
   return SkipListIterator(); // 使用空构造函数
+}
+
+// 找到前缀的起始位置
+// 返回第一个前缀匹配或者大于前缀的迭代器
+SkipListIterator SkipList::begin_preffix(const std::string &preffix) {
+  // std::shared_lock<std::shared_mutex> slock(rw_mutex);
+
+  auto current = head;
+  // 从最高层开始查找
+  for (int i = current_level - 1; i >= 0; --i) {
+    while (current->forward[i] && current->forward[i]->key < preffix) {
+      current = current->forward[i];
+    }
+  }
+  // 移动到最底层
+  current = current->forward[0];
+
+  return SkipListIterator(current);
+}
+
+// 找到前缀的终结位置
+SkipListIterator SkipList::end_preffix(const std::string &prefix) {
+  auto current = head;
+
+  // 从最高层开始查找
+  for (int i = current_level - 1; i >= 0; --i) {
+    while (current->forward[i] && current->forward[i]->key < prefix) {
+      current = current->forward[i];
+    }
+  }
+
+  // 移动到最底层
+  current = current->forward[0];
+
+  // 找到第一个键不以给定前缀开头的节点
+  while (current && current->key.substr(0, prefix.size()) == prefix) {
+    current = current->forward[0];
+  }
+
+  // 返回当前节点的迭代器
+  return SkipListIterator(current);
+}
+
+// 返回第一个满足谓词的位置和最后一个满足谓词的迭代器
+// 如果不存在, 范围nullptr
+// 谓词作用于key, 且保证满足谓词的结果只在一段连续的区间内, 例如前缀匹配的谓词
+// predicate返回值:
+//   0: 谓词
+//   1: 不满足谓词, 需要向右移动
+//   -1: 不满足谓词, 需要向左移动
+std::optional<std::pair<SkipListIterator, SkipListIterator>>
+SkipList::iters_monotony_predicate(std::function<int(const std::string &)> predicate) {
+  auto current = head;
+  SkipListIterator begin_iter = SkipListIterator(nullptr);
+  SkipListIterator end_iter = SkipListIterator(nullptr);
+
+  // 从最高层开始查找
+  // 一开始 current == head, 所以  current_level - 1 处肯定有合法的指针
+  bool find1 = false;
+  for (int i = current_level - 1; i >= 0; --i) {
+    while (!find1) {
+      auto forward_i = current->forward[i];
+      if (forward_i == nullptr) {
+        break;
+      }
+      auto direction = predicate(forward_i->key);
+      if (direction == 0) {
+        // current 已经满足谓词了
+        find1 = true;
+        current = forward_i;
+        break;
+      } else if (direction == -1) {
+        // 下一个位置不满足谓词, 且方向错误(位于目标区间右侧)
+        // 需要尝试更小的步长(层级)
+        break;
+      } else {
+        // 下一个位置不满足谓词, 但方向正确(位于目标区间左侧)
+        current = forward_i;
+      }
+    }
+  }
+
+  if (!find1) {
+    // 无法找到第一个满足谓词的迭代器, 直接返回
+    return std::nullopt;
+  }
+
+  // 记住当前 current 的位置
+  auto current2 = current;
+
+  // current 已经满足谓词, 但有可能中途跳过了节点, 需要前向检查
+  // 注意此时 不能直接从 current_level - 1 层开始,
+  // 因为当前节点的层数不一定等于最大层数
+  for (int i = current->backward.size() - 1; i >= 0; --i) {
+    while (true) {
+      if (current->backward[i].lock() == nullptr ||
+          current->backward[i].lock() == head) {
+        // 当前层没有前向节点, 或前向节点指向头结点
+        break;
+      }
+      auto direction = predicate(current->backward[i].lock()->key);
+      if (direction == 0) {
+        // 前一个位置满足谓词, 继续判断
+        current = current->backward[i].lock();
+        continue;
+      } else if (direction == 1) {
+        // 前一个位置不满足谓词
+        // 需要尝试更小的步长(层级)
+        break;
+      } else {
+        // 因为当前位置满足了谓词, 前一个位置不可能返回-1
+        // 这种情况属于跳表实现错误, 需要排查
+        throw std::runtime_error("iters_predicate: invalid direction");
+      }
+    }
+  }
+
+  // 找到第一个满足谓词的节点
+  begin_iter = SkipListIterator(current);
+
+  // 找到最后一个满足谓词的节点
+  for (int i = current2->forward.size() - 1; i >= 0; --i) {
+    while (true) {
+      if (current2->forward[i] == nullptr) {
+        // 当前层没有后向节点
+        break;
+      }
+      auto direction = predicate(current2->forward[i]->key);
+      if (direction == 0) {
+        // 后一个位置满足谓词, 继续判断
+        current2 = current2->forward[i];
+        continue;
+      } else if (direction == -1) {
+        // 后一个位置不满足谓词
+        // 需要尝试更小的步长(层级)
+        break;
+      } else {
+        // 因为当前位置满足了谓词, 后一个位置不可能返回1
+        // 这种情况属于跳表实现错误, 需要排查
+        throw std::runtime_error("iters_predicate: invalid direction");
+      }
+    }
+  }
+
+  end_iter = SkipListIterator(current2);
+  // 转化为开区间
+  ++end_iter;
+
+  return std::make_optional<std::pair<SkipListIterator, SkipListIterator>>(
+      begin_iter, end_iter);
 }

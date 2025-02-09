@@ -3,8 +3,11 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <functional>
+#include <memory>
 #include <optional>
 #include <stdexcept>
+#include <string>
 
 Block::Block(size_t capacity) : capacity(capacity) {}
 
@@ -210,6 +213,66 @@ std::optional<size_t> Block::get_idx_binary(const std::string &key) {
   return std::nullopt;
 }
 
+// 返回第一个满足谓词的位置和最后一个满足谓词的位置
+// 如果不存在, 范围nullptr
+// 谓词作用于key, 且保证满足谓词的结果只在一段连续的区间内, 例如前缀匹配的谓词
+// 返回的区间是闭区间, 开区间需要手动对返回值自增
+std::optional<
+    std::pair<std::shared_ptr<BlockIterator>, std::shared_ptr<BlockIterator>>>
+Block::get_monotony_predicate_iters(
+    std::function<bool(const std::string &)> predicate) {
+  if (offsets.empty()) {
+    return std::nullopt;
+  }
+
+  // 第一次二分查找，找到第一个满足谓词的位置
+  int left = 0;
+  int right = offsets.size() - 1;
+  int first = -1;
+
+  while (left <= right) {
+    int mid = left + (right - left) / 2;
+    size_t mid_offset = offsets[mid];
+
+    auto mid_key = get_key_at(mid_offset);
+    if (predicate(mid_key)) {
+      first = mid;
+      right = mid - 1; // 继续在左半部分查找
+    } else {
+      left = mid + 1;
+    }
+  }
+
+  if (first == -1) {
+    return std::nullopt; // 没有找到满足谓词的元素
+  }
+
+  // 第二次二分查找，找到最后一个满足谓词的位置
+  left = 0;
+  right = offsets.size() - 1;
+  int last = -1;
+
+  while (left <= right) {
+    int mid = left + (right - left) / 2;
+    size_t mid_offset = offsets[mid];
+
+    auto mid_key = get_key_at(mid_offset);
+    if (predicate(mid_key)) {
+      last = mid;
+      left = mid + 1; // 继续在右半部分查找
+    } else {
+      right = mid - 1;
+    }
+  }
+
+  auto it_begin = std::make_shared<BlockIterator>(shared_from_this(), first);
+  auto it_end = std::make_shared<BlockIterator>(shared_from_this(), last + 1);
+
+  return std::make_optional<std::pair<std::shared_ptr<BlockIterator>,
+                                      std::shared_ptr<BlockIterator>>>(it_begin,
+                                                                       it_end);
+}
+
 Block::Entry Block::get_entry_at(size_t offset) const {
   Entry entry;
   entry.key = get_key_at(offset);
@@ -224,6 +287,15 @@ size_t Block::cur_size() const {
 bool Block::is_empty() const { return offsets.empty(); }
 
 BlockIterator Block::begin() { return BlockIterator(shared_from_this(), 0); }
+
+std::optional<
+    std::pair<std::shared_ptr<BlockIterator>, std::shared_ptr<BlockIterator>>>
+Block::iters_preffix(const std::string &preffix) {
+  auto func = [&preffix](const std::string &key) {
+    return key.compare(0, preffix.size(), preffix) == 0;
+  };
+  return get_monotony_predicate_iters(func);
+}
 
 BlockIterator Block::end() {
   return BlockIterator(shared_from_this(), offsets.size());

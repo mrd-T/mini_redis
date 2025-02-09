@@ -28,7 +28,7 @@ TEST_F(BlockCacheTest, PutAndGet) {
   EXPECT_EQ(cache->get(1, 3), block3);
 }
 
-TEST_F(BlockCacheTest, CacheEviction) {
+TEST_F(BlockCacheTest, CacheEviction1) {
   auto block1 = std::make_shared<Block>();
   auto block2 = std::make_shared<Block>();
   auto block3 = std::make_shared<Block>();
@@ -48,6 +48,30 @@ TEST_F(BlockCacheTest, CacheEviction) {
   EXPECT_EQ(cache->get(1, 1), block1);
   EXPECT_EQ(cache->get(1, 2), block2);
   EXPECT_EQ(cache->get(1, 3), nullptr); // block3 被驱逐
+  EXPECT_EQ(cache->get(1, 4), block4);
+}
+
+TEST_F(BlockCacheTest, CacheEviction2) {
+  auto block1 = std::make_shared<Block>();
+  auto block2 = std::make_shared<Block>();
+  auto block3 = std::make_shared<Block>();
+  auto block4 = std::make_shared<Block>();
+
+  cache->put(1, 1, block1);
+  cache->put(1, 2, block2);
+  cache->put(1, 3, block3);
+
+  // 访问 block1 和 block2
+  cache->get(1, 1);
+  cache->get(1, 2);
+  cache->get(1, 3);
+
+  // 插入 block4，应该驱逐 block3
+  cache->put(1, 4, block4);
+
+  EXPECT_EQ(cache->get(1, 1), nullptr); // block1 被驱逐
+  EXPECT_EQ(cache->get(1, 2), block2);
+  EXPECT_EQ(cache->get(1, 3), block3);
   EXPECT_EQ(cache->get(1, 4), block4);
 }
 

@@ -3,6 +3,7 @@
 #include "../iterator/iterator.h"
 #include "../skiplist/skiplist.h"
 #include <cstddef>
+#include <functional>
 #include <iostream>
 #include <list>
 #include <memory>
@@ -35,6 +36,11 @@ public:
   size_t get_frozen_size();
   size_t get_total_size();
   HeapIterator begin();
+  HeapIterator iters_preffix(const std::string &preffix);
+
+  HeapIterator iters_monotony_predicate(
+      std::function<bool(size_t, const std::string &)> predicate);
+
   HeapIterator end();
 
 private:

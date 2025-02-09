@@ -11,6 +11,9 @@
 // SST
 // **************************************************
 
+extern std::optional<std::pair<SstIterator, SstIterator>>
+iters_monotony_predicate(std::shared_ptr<SST> sst,
+                         std::function<bool(const std::string &)> predicate);
 std::shared_ptr<SST> SST::open(size_t sst_id, FileObj file,
                                std::shared_ptr<BlockCache> block_cache) {
   auto sst = std::make_shared<SST>();
@@ -114,7 +117,8 @@ size_t SST::find_block_idx(const std::string &key) {
   }
 
   if (left >= meta_entries.size()) {
-    throw std::runtime_error("Key not found in any block");
+    // 如果没有找到完全匹配的块，返回-1
+    return -1;
   }
   return left;
 }

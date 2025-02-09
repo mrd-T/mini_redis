@@ -1,6 +1,10 @@
 #include "../include/block/block.h"
 #include "../include/block/block_iterator.h"
+#include "../include/consts.h"
 #include <gtest/gtest.h>
+#include <iomanip>
+#include <memory>
+#include <vector>
 
 class BlockTest : public ::testing::Test {
 protected:
@@ -202,6 +206,57 @@ TEST_F(BlockTest, IteratorTest) {
     EXPECT_EQ(it->second, test_data[count].second);
     count++;
   }
+}
+
+TEST_F(BlockTest, PredicateTest) {
+  std::vector<uint8_t> encoded_p;
+  {
+    std::shared_ptr<Block> block1 = std::make_shared<Block>(LSM_BLOCK_SIZE);
+    int num = 50;
+
+    for (int i = 0; i < num; ++i) {
+      std::ostringstream oss_key;
+      std::ostringstream oss_value;
+
+      // 设置数字为4位长度，不足的部分用前导零填充
+      oss_key << "key" << std::setw(4) << std::setfill('0') << i;
+      oss_value << "value" << std::setw(4) << std::setfill('0') << i;
+
+      std::string key = oss_key.str();
+      std::string value = oss_value.str();
+
+      block1->add_entry(key, value);
+    }
+
+    auto result =
+        block1->get_monotony_predicate_iters([](const std::string &key) {
+          return key >= "key0020" && key < "key0030";
+        });
+    EXPECT_TRUE(result.has_value());
+    auto [it_begin, it_end] = result.value();
+    EXPECT_EQ((*it_begin)->first, "key0020");
+    EXPECT_EQ((*it_end)->first, "key0030");
+    for (int i = 0; i < 5; i++) {
+      ++(*it_begin);
+    }
+    EXPECT_EQ((*it_begin)->first, "key0025");
+
+    encoded_p = block1->encode();
+  }
+  std::shared_ptr<Block> block2 = Block::decode(encoded_p);
+
+  auto result =
+      block2->get_monotony_predicate_iters([](const std::string &key) {
+        return key >= "key0020" && key < "key0030";
+      });
+  EXPECT_TRUE(result.has_value());
+  auto [it_begin, it_end] = result.value();
+  EXPECT_EQ((*it_begin)->first, "key0020");
+  EXPECT_EQ((*it_end)->first, "key0030");
+  for (int i = 0; i < 5; i++) {
+    ++(*it_begin);
+  }
+  EXPECT_EQ((*it_begin)->first, "key0025");
 }
 
 int main(int argc, char **argv) {

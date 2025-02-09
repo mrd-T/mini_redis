@@ -1,9 +1,11 @@
 #pragma once
 
 #include "block.h"
+#include <cstdint>
 #include <list>
 #include <memory>
 #include <mutex>
+#include <sys/types.h>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -13,7 +15,7 @@ struct CacheItem {
   int sst_id;
   int block_id;
   std::shared_ptr<Block> cache_block;
-  std::vector<size_t> access_times; // 访问时间戳
+  uint64_t access_count; // 访问时间戳
 };
 
 // 自定义哈希函数
@@ -56,18 +58,16 @@ private:
   mutable std::mutex mutex_; // 互斥锁保护缓存池
 
   // 双向链表存储缓存项
-  std::list<CacheItem> cache_list_;
+  std::list<CacheItem> cache_list_greater_k;
+  std::list<CacheItem> cache_list_less_k;
 
   // 哈希表索引缓存项
   std::unordered_map<std::pair<int, int>, std::list<CacheItem>::iterator,
                      pair_hash, pair_equal>
       cache_map_;
 
-  // 计算当前时间戳
-  size_t current_time() const;
-
   // 更新缓存项的访问时间
-  void update_access_time(std::list<CacheItem>::iterator it);
+  void update_access_count(std::list<CacheItem>::iterator it);
 
   // 记录请求数和命中数
   mutable size_t total_requests_ = 0;

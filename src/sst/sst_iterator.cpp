@@ -1,6 +1,38 @@
 #include "../../include/sst/sst_iterator.h"
 #include "../../include/sst/sst.h"
+#include <cstddef>
+#include <optional>
 #include <stdexcept>
+
+std::optional<std::pair<SstIterator, SstIterator>>
+sst_iters_monotony_predicate(std::shared_ptr<SST> sst,
+                         std::function<bool(const std::string &)> predicate) {
+  // TODO: 需要单元测试
+  std::optional<SstIterator> final_begin = std::nullopt;
+  std::optional<SstIterator> final_end = std::nullopt;
+  for (int block_idx = 0; block_idx < sst->meta_entries.size(); block_idx++) {
+    auto block = sst->read_block(block_idx);
+
+    auto result_i = block->get_monotony_predicate_iters(predicate);
+    if (result_i.has_value()) {
+      auto [i_begin, i_end] = result_i.value();
+      if (!final_begin.has_value()) {
+        auto tmp_it = SstIterator(sst);
+        tmp_it.set_block_idx(block_idx);
+        tmp_it.set_block_it(i_begin);
+        final_begin = SstIterator(sst);
+      }
+      auto tmp_it = SstIterator(sst);
+      tmp_it.set_block_idx(block_idx);
+      tmp_it.set_block_it(i_end);
+      final_end = tmp_it;
+    }
+  }
+  if (!final_begin.has_value() || !final_end.has_value()) {
+    return std::nullopt;
+  }
+  return std::make_pair(final_begin.value(), final_end.value());
+}
 
 SstIterator::SstIterator(std::shared_ptr<SST> sst)
     : m_sst(sst), m_block_idx(0), m_block_it(nullptr) {
@@ -14,6 +46,11 @@ SstIterator::SstIterator(std::shared_ptr<SST> sst, const std::string &key)
   if (m_sst) {
     seek(key);
   }
+}
+
+void SstIterator::set_block_idx(size_t idx) { m_block_idx = idx; }
+void SstIterator::set_block_it(std::shared_ptr<BlockIterator> it) {
+  m_block_it = it;
 }
 
 void SstIterator::seek_first() {
@@ -35,6 +72,12 @@ void SstIterator::seek(const std::string &key) {
 
   try {
     m_block_idx = m_sst->find_block_idx(key);
+    if (m_block_idx == -1 || m_block_idx >= m_sst->num_blocks()) {
+      // 置为 end
+      // TODO: 这个边界情况需要添加单元测试
+      m_block_it = nullptr;
+      return;
+    }
     auto block = m_sst->read_block(m_block_idx);
     if (!block) {
       m_block_it = nullptr;
@@ -43,7 +86,7 @@ void SstIterator::seek(const std::string &key) {
     m_block_it = std::make_shared<BlockIterator>(block, key);
   } catch (const std::exception &) {
     m_block_it = nullptr;
-    throw std::runtime_error("could not read a block from m_sst");
+    return;
   }
 }
 

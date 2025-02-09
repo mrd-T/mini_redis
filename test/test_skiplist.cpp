@@ -3,11 +3,14 @@
 #include <atomic>
 #include <chrono>
 #include <gtest/gtest.h>
+#include <iomanip>
 #include <latch>
 #include <random>
+#include <sstream>
 #include <string>
 #include <thread>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 // 测试基本插入、查找和删除
@@ -164,7 +167,155 @@ TEST(SkipListTest, MemorySizeTracking) {
   EXPECT_EQ(skipList.get_size(), 0);
 }
 
-// ! 现在的实现, 并发的锁由 SkipList 的上层 MemTable 实现, 因此不需要测试 SkipList 的并发性
+TEST(SkipListTest, IteratorPreffix) {
+  SkipList skipList;
+
+  // 插入一些测试数据
+  skipList.put("apple", "0");
+  skipList.put("apple2", "1");
+  skipList.put("apricot", "2");
+  skipList.put("banana", "3");
+  skipList.put("berry", "4");
+  skipList.put("cherry", "5");
+  skipList.put("cherry2", "6");
+
+  // 测试前缀 "ap"
+  auto it = skipList.begin_preffix("ap");
+  EXPECT_EQ(it.get_key(), "apple");
+
+  // 测试前缀 "ba"
+  it = skipList.begin_preffix("ba");
+  EXPECT_EQ(it.get_key(), "banana");
+
+  // 测试前缀 "ch"
+  it = skipList.begin_preffix("ch");
+  EXPECT_EQ(it.get_key(), "cherry");
+
+  // 测试前缀 "z"
+  it = skipList.begin_preffix("z");
+  EXPECT_TRUE(it == skipList.end());
+
+  // 测试前缀 "berr"
+  it = skipList.begin_preffix("berr");
+  EXPECT_EQ(it.get_key(), "berry");
+
+  // 测试前缀 "a"
+  it = skipList.begin_preffix("a");
+  EXPECT_EQ(it.get_key(), "apple");
+
+  // 测试前缀结束位置
+  it = skipList.end_preffix("a");
+  EXPECT_EQ(it.get_key(), "banana");
+
+  it = skipList.end_preffix("cherry");
+  EXPECT_TRUE(it == skipList.end());
+
+  EXPECT_EQ(skipList.begin_preffix("not exist"),
+            skipList.end_preffix("not exist"));
+}
+
+TEST(SkipListTest, ItersPredicate_Base) {
+
+  SkipList skipList;
+  skipList.put("prefix1", "value1");
+  skipList.put("prefix2", "value2");
+  skipList.put("prefix3", "value3");
+  skipList.put("other", "value4");
+  skipList.put("longerkey", "value5");
+  skipList.put("averylongkey", "value6");
+  skipList.put("medium", "value7");
+  skipList.put("midway", "value8");
+  skipList.put("midpoint", "value9");
+
+  // 测试前缀匹配
+  auto prefix_result =
+      skipList.iters_monotony_predicate([](const std::string &key) {
+        auto match_str = key.substr(0, 3);
+        if (match_str == "pre") {
+          return 0;
+        } else if (match_str < "pre") {
+          return 1;
+        }
+        return -1;
+      });
+  ASSERT_TRUE(prefix_result.has_value());
+  auto [prefix_begin_iter, prefix_end_iter] = prefix_result.value();
+  EXPECT_EQ(prefix_begin_iter.get_key(), "prefix1");
+  EXPECT_TRUE(prefix_end_iter.is_end());
+
+  EXPECT_EQ(prefix_begin_iter.get_value(), "value1");
+  ++prefix_begin_iter;
+  EXPECT_EQ(prefix_begin_iter.get_value(), "value2");
+  ++prefix_begin_iter;
+  EXPECT_EQ(prefix_begin_iter.get_value(), "value3");
+
+  // 测试范围匹配
+  auto range = std::make_pair("l", "n"); // [l, n)
+  auto range_result =
+      skipList.iters_monotony_predicate([&range](const std::string &key) {
+        if (key < range.first) {
+          return 1;
+        } else if (key >= range.second) {
+          return -1;
+        } else {
+          return 0;
+        }
+      });
+  ASSERT_TRUE(range_result.has_value());
+  auto [range_begin_iter, range_end_iter] = range_result.value();
+  EXPECT_EQ(range_end_iter.get_key(),
+            "other"); // end_iter 是开区间，所以指向 "prefix1"
+  EXPECT_EQ(range_begin_iter.get_key(), "longerkey");
+  ++range_begin_iter;
+  EXPECT_EQ(range_begin_iter.get_key(), "medium");
+  ++range_begin_iter;
+  EXPECT_EQ(range_begin_iter.get_key(), "midpoint");
+  ++range_begin_iter;
+  EXPECT_EQ(range_begin_iter.get_key(), "midway");
+}
+
+TEST(SkipListTest, ItersPredicate_Large) {
+  SkipList skipList;
+  int num = 10000;
+
+  for (int i = 0; i < num; ++i) {
+    std::ostringstream oss_key;
+    std::ostringstream oss_value;
+
+    // 设置数字为4位长度，不足的部分用前导零填充
+    oss_key << "key" << std::setw(4) << std::setfill('0') << i;
+    oss_value << "value" << std::setw(4) << std::setfill('0') << i;
+
+    std::string key = oss_key.str();
+    std::string value = oss_value.str();
+
+    skipList.put(key, value);
+  }
+
+  skipList.remove("key1015");
+
+  auto result = skipList.iters_monotony_predicate([](const std::string &key) {
+    if (key < "key1010") {
+      return 1;
+    } else if (key >= "key1020") {
+      return -1;
+    } else {
+      return 0;
+    }
+  });
+
+  ASSERT_TRUE(result.has_value());
+  auto [range_begin_iter, range_end_iter] = result.value();
+  EXPECT_EQ(range_begin_iter.get_key(), "key1010");
+  EXPECT_EQ(range_end_iter.get_key(), "key1020");
+  for (int i = 0; i < 5; i++) {
+    range_begin_iter++;
+  }
+  EXPECT_EQ(range_begin_iter.get_key(), "key1016");
+}
+
+// ! 现在的实现, 并发的锁由 SkipList 的上层 MemTable 实现, 因此不需要测试
+// SkipList 的并发性
 // // 测试跳表的并发性能
 // TEST(SkipListTest, ConcurrentOperations) {
 //   SkipList skipList;

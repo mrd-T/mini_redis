@@ -66,7 +66,7 @@ public:
   // 按照谓词返回迭代器, 左闭右开
   std::optional<
       std::pair<std::shared_ptr<BlockIterator>, std::shared_ptr<BlockIterator>>>
-  get_monotony_predicate_iters(std::function<bool(const std::string &)> func);
+  get_monotony_predicate_iters(std::function<int(const std::string &)> func);
 
   BlockIterator begin();
 

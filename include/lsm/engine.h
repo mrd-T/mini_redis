@@ -28,6 +28,10 @@ public:
 
   std::string get_sst_path(size_t sst_id);
 
+  std::optional<std::pair<MergeIterator, MergeIterator>>
+  lsm_iters_monotony_predicate(
+      std::function<int(const std::string &)> predicate);
+
   MergeIterator begin();
   MergeIterator end();
 };
@@ -47,4 +51,8 @@ public:
   using LSMIterator = MergeIterator;
   LSMIterator begin();
   LSMIterator end();
+  std::optional<std::pair<MergeIterator, MergeIterator>>
+  lsm_iters_monotony_predicate(
+      std::function<int(const std::string &)> predicate);
+  void flush();
 };

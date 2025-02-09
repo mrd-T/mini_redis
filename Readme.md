@@ -4,7 +4,7 @@ The developing posts can be found in my [blog](https://tonixwd.github.io/categor
 
 # Usage
 
-## Example Code
+## Use as a library
 
 Here is a simple example demonstrating how to use the LSM Tree for basic key-value operations:
 
@@ -58,6 +58,13 @@ int main() {
 }
 ```
 
+## Use to replace redis-server
+Now the project only partly compatible with the Redis Resp protocol, you can check `TODO` for the supported Redis commands.
+```bash
+xmake run server
+```
+Then you can use redis-cli to connect to the server.
+
 ## Build Configuration
 
 The project uses xmake as the build system. Below is the xmake configuration for building the project and running tests:
@@ -84,10 +91,10 @@ xmake install --root lsm_shared
 - [x] SkipList
   - [x] get/put/remove
   - [x] iterator
-- [ ] MemTable
+- [x] MemTable
   - [x] Iterator
   - [x] Merge
-  - [ ] Range Query
+  - [x] Range Query
   - [x] flush to sst
 - [ ] SST
   - [x] Encode/Decode

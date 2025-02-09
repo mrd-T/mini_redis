@@ -217,10 +217,14 @@ std::optional<size_t> Block::get_idx_binary(const std::string &key) {
 // 如果不存在, 范围nullptr
 // 谓词作用于key, 且保证满足谓词的结果只在一段连续的区间内, 例如前缀匹配的谓词
 // 返回的区间是闭区间, 开区间需要手动对返回值自增
+// predicate返回值:
+//   0: 满足谓词
+//   1: 不满足谓词, 需要向右移动
+//   -1: 不满足谓词, 需要向左移动
 std::optional<
     std::pair<std::shared_ptr<BlockIterator>, std::shared_ptr<BlockIterator>>>
 Block::get_monotony_predicate_iters(
-    std::function<bool(const std::string &)> predicate) {
+    std::function<int(const std::string &)> predicate) {
   if (offsets.empty()) {
     return std::nullopt;
   }
@@ -229,17 +233,27 @@ Block::get_monotony_predicate_iters(
   int left = 0;
   int right = offsets.size() - 1;
   int first = -1;
+  int first_first = -1; // 第一次找到的位置, 不一定是区间的首尾
 
   while (left <= right) {
     int mid = left + (right - left) / 2;
     size_t mid_offset = offsets[mid];
 
     auto mid_key = get_key_at(mid_offset);
-    if (predicate(mid_key)) {
-      first = mid;
-      right = mid - 1; // 继续在左半部分查找
-    } else {
+    int direction = predicate(mid_key);
+    if (direction < 0) {
+      // 目标在 mid 左侧
+      right = mid - 1;
+    } else if (direction > 0) {
+      // 目标在 mid 右侧
       left = mid + 1;
+    } else {
+      first = mid;
+      if (first_first == -1) {
+        first_first = mid;
+      }
+      // 继续判断左边是否符合
+      right = mid - 1;
     }
   }
 
@@ -248,7 +262,7 @@ Block::get_monotony_predicate_iters(
   }
 
   // 第二次二分查找，找到最后一个满足谓词的位置
-  left = 0;
+  left = first_first;
   right = offsets.size() - 1;
   int last = -1;
 
@@ -257,11 +271,18 @@ Block::get_monotony_predicate_iters(
     size_t mid_offset = offsets[mid];
 
     auto mid_key = get_key_at(mid_offset);
-    if (predicate(mid_key)) {
-      last = mid;
-      left = mid + 1; // 继续在右半部分查找
-    } else {
+    int direction = predicate(mid_key);
+
+    if (direction < 0) {
+      // 目标在 mid 左侧
       right = mid - 1;
+    } else if (direction > 0) {
+      // 目标在 mid 右侧
+      throw std::runtime_error("block is not sorted");
+    } else {
+      last = mid;
+      // 继续判断右边是否符合
+      left = mid + 1;
     }
   }
 

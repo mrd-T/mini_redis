@@ -4,14 +4,23 @@
 #include <optional>
 #include <stdexcept>
 
-std::optional<std::pair<SstIterator, SstIterator>>
-sst_iters_monotony_predicate(std::shared_ptr<SST> sst,
-                         std::function<bool(const std::string &)> predicate) {
+// predicate返回值:
+//   0: 谓词
+//   1: 不满足谓词, 需要向右移动
+//   -1: 不满足谓词, 需要向左移动
+std::optional<std::pair<SstIterator, SstIterator>> sst_iters_monotony_predicate(
+    std::shared_ptr<SST> sst,
+    std::function<int(const std::string &)> predicate) {
   // TODO: 需要单元测试
   std::optional<SstIterator> final_begin = std::nullopt;
   std::optional<SstIterator> final_end = std::nullopt;
   for (int block_idx = 0; block_idx < sst->meta_entries.size(); block_idx++) {
     auto block = sst->read_block(block_idx);
+
+    BlockMeta &meta_i = sst->meta_entries[block_idx];
+    if (predicate(meta_i.first_key) < 0 || predicate(meta_i.last_key) > 0) {
+      break;
+    }
 
     auto result_i = block->get_monotony_predicate_iters(predicate);
     if (result_i.has_value()) {
@@ -20,11 +29,14 @@ sst_iters_monotony_predicate(std::shared_ptr<SST> sst,
         auto tmp_it = SstIterator(sst);
         tmp_it.set_block_idx(block_idx);
         tmp_it.set_block_it(i_begin);
-        final_begin = SstIterator(sst);
+        final_begin = tmp_it;
       }
       auto tmp_it = SstIterator(sst);
       tmp_it.set_block_idx(block_idx);
       tmp_it.set_block_it(i_end);
+      if (tmp_it.is_end() && tmp_it.m_block_idx == sst->num_blocks()) {
+        tmp_it.set_block_it(nullptr);
+      }
       final_end = tmp_it;
     }
   }
@@ -96,7 +108,7 @@ std::string SstIterator::key() {
   if (!m_block_it) {
     throw std::runtime_error("Iterator is invalid");
   }
-  return (*m_block_it)->second;
+  return (*m_block_it)->first;
 }
 
 std::string SstIterator::value() {
@@ -124,6 +136,11 @@ SstIterator &SstIterator::operator++() {
     }
   }
   return *this;
+}
+
+bool SstIterator::is_valid() {
+  return m_block_it && !m_block_it->is_end() &&
+         m_block_idx < m_sst->num_blocks();
 }
 
 bool SstIterator::operator==(const SstIterator &other) const {

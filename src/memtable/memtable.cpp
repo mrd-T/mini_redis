@@ -160,3 +160,35 @@ HeapIterator MemTable::iters_preffix(const std::string &preffix) {
 
   return HeapIterator(item_vec);
 }
+
+std::optional<std::pair<HeapIterator, HeapIterator>>
+MemTable::iters_monotony_predicate(
+    std::function<int(const std::string &)> predicate) {
+  std::shared_lock<std::shared_mutex> slock(rx_mtx);
+  std::vector<SearchItem> item_vec;
+
+  auto cur_result = current_table->iters_monotony_predicate(predicate);
+  if (cur_result.has_value()) {
+    auto [begin, end] = cur_result.value();
+    for (auto iter = begin; iter != end; ++iter) {
+      item_vec.emplace_back(iter.get_key(), iter.get_value(), 0);
+    }
+  }
+
+  int level = 1;
+  for (auto ft = frozen_tables.begin(); ft != frozen_tables.end(); ft++) {
+    auto table = *ft;
+    auto result = table->iters_monotony_predicate(predicate);
+    if (result.has_value()) {
+      auto [begin, end] = result.value();
+      for (auto iter = begin; iter != end; ++iter) {
+        item_vec.emplace_back(iter.get_key(), iter.get_value(), level);
+      }
+    }
+  }
+
+  if (item_vec.empty()) {
+    return std::nullopt;
+  }
+  return std::make_pair(HeapIterator(item_vec), HeapIterator{});
+}

@@ -19,7 +19,7 @@ bool MergeIterator::choose_it_a() {
 }
 
 void MergeIterator::skip_it_b() {
-  if (!it_a.is_end() && !it_b.is_end() && it_b->first == it_b->first) {
+  if (!it_a.is_end() && !it_b.is_end() && it_a->first == it_b->first) {
     ++it_b;
   }
 }

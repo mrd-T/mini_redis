@@ -12,6 +12,7 @@
 #include <shared_mutex>
 #include <string>
 #include <unordered_map>
+#include <utility>
 
 class BlockCache;
 class SST;
@@ -38,8 +39,8 @@ public:
   HeapIterator begin();
   HeapIterator iters_preffix(const std::string &preffix);
 
-  HeapIterator iters_monotony_predicate(
-      std::function<bool(size_t, const std::string &)> predicate);
+  std::optional<std::pair<HeapIterator, HeapIterator>>
+  iters_monotony_predicate(std::function<int(const std::string &)> predicate);
 
   HeapIterator end();
 

@@ -41,7 +41,7 @@ class SST : public std::enable_shared_from_this<SST> {
   friend std::optional<std::pair<SstIterator, SstIterator>>
   sst_iters_monotony_predicate(
       std::shared_ptr<SST> sst,
-      std::function<bool(const std::string &)> predicate);
+      std::function<int(const std::string &)> predicate);
 
 private:
   FileObj file;

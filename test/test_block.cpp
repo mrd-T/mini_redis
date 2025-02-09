@@ -230,7 +230,13 @@ TEST_F(BlockTest, PredicateTest) {
 
     auto result =
         block1->get_monotony_predicate_iters([](const std::string &key) {
-          return key >= "key0020" && key < "key0030";
+          if (key < "key0020") {
+            return 1;
+          }
+          if (key >= "key0030") {
+            return -1;
+          }
+          return 0;
         });
     EXPECT_TRUE(result.has_value());
     auto [it_begin, it_end] = result.value();
@@ -247,7 +253,13 @@ TEST_F(BlockTest, PredicateTest) {
 
   auto result =
       block2->get_monotony_predicate_iters([](const std::string &key) {
-        return key >= "key0020" && key < "key0030";
+        if (key < "key0020") {
+          return 1;
+        }
+        if (key >= "key0030") {
+          return -1;
+        }
+        return 0;
       });
   EXPECT_TRUE(result.has_value());
   auto [it_begin, it_end] = result.value();

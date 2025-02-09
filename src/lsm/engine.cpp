@@ -4,10 +4,16 @@
 #include "../../include/sst/sst_iterator.h"
 #include <filesystem>
 #include <mutex>
+#include <optional>
+#include <utility>
 #include <vector>
 
 // *********************** LSMEngine ***********************
 LSMEngine::LSMEngine(std::string path) : data_dir(path) {
+  // 初始化 block_cahce
+  block_cache = std::make_shared<BlockCache>(LSMmm_BLOCK_CACHE_CAPACITY,
+                                             LSMmm_BLOCK_CACHE_K);
+
   // 创建数据目录
   if (!std::filesystem::exists(path)) {
     std::filesystem::create_directory(path);
@@ -31,10 +37,6 @@ LSMEngine::LSMEngine(std::string path) : data_dir(path) {
         continue;
       }
       size_t sst_id = std::stoull(id_str);
-
-      // 初始化 block_cahce
-      block_cache = std::make_shared<BlockCache>(LSMmm_BLOCK_CACHE_CAPACITY,
-                                                 LSMmm_BLOCK_CACHE_K);
 
       // 加载SST文件, 初始化时需要加写锁
       std::unique_lock<std::shared_mutex> lock(ssts_mtx); // 写锁
@@ -141,6 +143,45 @@ std::string LSMEngine::get_sst_path(size_t sst_id) {
   return ss.str();
 }
 
+std::optional<std::pair<MergeIterator, MergeIterator>>
+LSMEngine::lsm_iters_monotony_predicate(
+    std::function<int(const std::string &)> predicate) {
+
+  //  先从 memtable 中查询
+  auto mem_result = memtable.iters_monotony_predicate(predicate);
+
+  // 再从 sst 中查询
+  std::vector<SearchItem> item_vec;
+  for (auto &[sst_idx, sst] : ssts) {
+    auto result = sst_iters_monotony_predicate(sst, predicate);
+    if (!result.has_value()) {
+      continue;
+    }
+    auto [it_begin, it_end] = result.value();
+    for (; it_begin != it_end && it_begin.is_valid(); ++it_begin) {
+      item_vec.emplace_back(it_begin.key(), it_begin.value(), sst_idx);
+    }
+  }
+
+  HeapIterator l0_iter(item_vec);
+
+  if (!mem_result.has_value() && item_vec.empty()) {
+    return std::nullopt;
+  }
+  if (mem_result.has_value()) {
+    auto [mem_start, mem_end] = mem_result.value();
+    auto start = MergeIterator(mem_start, l0_iter);
+    auto end = MergeIterator{};
+    return std::make_optional<std::pair<MergeIterator, MergeIterator>>(start,
+                                                                       end);
+  } else {
+    auto start = MergeIterator(HeapIterator{}, l0_iter);
+    auto end = MergeIterator{};
+    return std::make_optional<std::pair<MergeIterator, MergeIterator>>(start,
+                                                                       end);
+  }
+}
+
 MergeIterator LSMEngine::begin() {
   std::vector<SearchItem> item_vec;
   std::shared_lock<std::shared_mutex> lock(ssts_mtx); // 读锁
@@ -174,6 +215,13 @@ void LSM::put(const std::string &key, const std::string &value) {
   engine.put(key, value);
 }
 void LSM::remove(const std::string &key) { engine.remove(key); }
+void LSM::flush() { engine.flush(); }
 
 LSM::LSMIterator LSM::begin() { return engine.begin(); }
 LSM::LSMIterator LSM::end() { return engine.end(); }
+
+std::optional<std::pair<MergeIterator, MergeIterator>>
+LSM::lsm_iters_monotony_predicate(
+    std::function<int(const std::string &)> predicate) {
+  return engine.lsm_iters_monotony_predicate(predicate);
+}

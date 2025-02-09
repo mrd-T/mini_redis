@@ -9,15 +9,15 @@
 class SstIterator;
 class SST;
 
-std::optional<std::pair<SstIterator, SstIterator>> sst_iters_monotony_predicate(
-    std::shared_ptr<SST> sst,
-    std::function<bool(const std::string &)> predicate);
+std::optional<std::pair<SstIterator, SstIterator>>
+sst_iters_monotony_predicate(std::shared_ptr<SST> sst,
+                             std::function<int(const std::string &)> predicate);
 
 class SstIterator {
   friend std::optional<std::pair<SstIterator, SstIterator>>
   sst_iters_monotony_predicate(
       std::shared_ptr<SST> sst,
-      std::function<bool(const std::string &)> predicate);
+      std::function<int(const std::string &)> predicate);
 
   friend SST;
 
@@ -58,4 +58,5 @@ public:
   bool operator!=(const SstIterator &other) const;
   value_type operator*() const;
   pointer operator->() const;
+  bool is_valid();
 };

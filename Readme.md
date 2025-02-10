@@ -2,6 +2,26 @@
 
 The developing posts can be found in my [blog](https://tonixwd.github.io/categories/%E9%A1%B9%E7%9B%AE/) or [zhihu](https://www.zhihu.com/column/c_1867534978344161280).
 
+## Build Configuration
+
+The project uses xmake as the build system. Below is the xmake configuration for building the project and running tests:
+
+1. Compile the project
+```bash
+xmake
+```
+
+2. Run the example program or test
+```bash
+xmake run example
+xmake run test_lsm
+```
+
+3. Install the shared library
+```bash
+xmake install --root lsm_shared
+```
+
 # Usage
 
 ## Use as a library
@@ -63,27 +83,9 @@ Now the project only partly compatible with the Redis Resp protocol, you can che
 ```bash
 xmake run server
 ```
-Then you can use redis-cli to connect to the server.
+Then you can use redis-cli to connect to the server:
 
-## Build Configuration
-
-The project uses xmake as the build system. Below is the xmake configuration for building the project and running tests:
-
-1. Compile the project
-```bash
-xmake
-```
-
-2. Run the example program or test
-```bash
-xmake run example
-xmake run test_lsm
-```
-
-3. Install the shared library
-```bash
-xmake install --root lsm_shared
-```
+![redis-example](./doc/redis-example.png)
 
 **The project is under development, and the current version is not stable.**
 
@@ -91,6 +93,7 @@ xmake install --root lsm_shared
 - [x] SkipList
   - [x] get/put/remove
   - [x] iterator
+  - [x] Range Query
 - [x] MemTable
   - [x] Iterator
   - [x] Merge
@@ -100,7 +103,7 @@ xmake install --root lsm_shared
   - [x] Encode/Decode
   - [x] Iterator
   - [x] Query
-  - [ ] Range Query
+  - [x] Range Query
   - [ ] Compact
 - [ ] Wal
 - [ ] Transaction
@@ -123,4 +126,15 @@ xmake install --root lsm_shared
     - [x] llen
     - [x] lrange
   - [ ] Set
-  - [ ] Sorted Set
+  - [x] ZSet
+    - [x] ZADD
+    - [x] ZREM
+    - [x] ZCARD
+    - [x] ZRANGE
+    - [x] ZSCORE
+    - [x] ZRANK
+    - [x] ZINCRBY
+
+## License
+
+This project is licensed under the MIT License.

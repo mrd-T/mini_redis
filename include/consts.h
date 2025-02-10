@@ -18,3 +18,5 @@
 #define REDIS_FIELD_PREFIX "REDIS_FIELD_"            // 哈希表字段的前缀
 #define REDIS_FIELD_SEPARATOR '$' // 哈希表字段的分隔符
 #define REDIS_LIST_SEPARATOR '#'  // 链表元素的分隔符
+#define REDIS_SORTED_SET_PREFIX "REDIS_SORTED_SET_" // 有序集合的前缀
+#define REDIS_SORTED_SET_SCORE_LEN 32 // 有序集合分数的长度

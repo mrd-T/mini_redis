@@ -49,6 +49,20 @@ OPS string2Ops(const std::string &opStr) {
     return OPS::LLEN;
   } else if (lowerOpStr == "lrange") {
     return OPS::LRANGE;
+  } else if (lowerOpStr == "zadd") {
+    return OPS::ZADD;
+  } else if (lowerOpStr == "zcard") {
+    return OPS::ZCARD;
+  } else if (lowerOpStr == "zincrby") {
+    return OPS::ZINCRBY;
+  } else if (lowerOpStr == "zrange") {
+    return OPS::ZRANGE;
+  } else if (lowerOpStr == "zrank") {
+    return OPS::ZRANK;
+  } else if (lowerOpStr == "zrem") {
+    return OPS::ZREM;
+  } else if (lowerOpStr == "zscore") {
+    return OPS::ZSCORE;
   } else {
     return OPS::UNKNOWN;
   }
@@ -238,4 +252,54 @@ std::string lrange_handler(std::vector<std::string> &args,
              << " " << args[3] << '\n';
   }
   return engine.lrange(args);
+}
+
+// ****************************** 有序集合操作 ******************************
+std::string zadd_handler(std::vector<std::string> &args, RedisWrapper &engine) {
+  if (args.size() < 4 || (args.size() - 2) % 2 != 0) {
+    return "-ERR wrong number of arguments for 'zadd' command\r\n";
+  }
+  return engine.zadd(args);
+}
+std::string zrem_handler(std::vector<std::string> &args, RedisWrapper &engine) {
+  if (args.size() < 3) {
+    return "-ERR wrong number of arguments for 'zrem' command\r\n";
+  }
+  return engine.zrem(args);
+}
+std::string zrange_handler(std::vector<std::string> &args,
+                           RedisWrapper &engine) {
+  if (args.size() < 4) {
+    return "-ERR wrong number of arguments for 'zrange' command\r\n";
+  }
+  return engine.zrange(args);
+}
+std::string zcard_handler(std::vector<std::string> &args,
+                          RedisWrapper &engine) {
+  if (args.size() != 2) {
+    return "-ERR wrong number of arguments for 'zcard' command\r\n";
+  }
+  return engine.zcard(args);
+}
+std::string zscore_handler(std::vector<std::string> &args,
+                           RedisWrapper &engine) {
+  if (args.size() != 3) {
+    return "-ERR wrong number of arguments for 'zscore' command\r\n";
+  }
+  return engine.zscore(args);
+}
+std::string zincrby_handler(std::vector<std::string> &args,
+                            RedisWrapper &engine) {
+  if (args.size() != 4) {
+    return "-ERR wrong number of arguments for 'zincrby' command\r\n";
+  }
+  return engine.zincrby(args);
+}
+
+std::string zrank_handler(std::vector<std::string> &args,
+                          RedisWrapper &engine) {
+  if (args.size() != 3) {
+    return "-ERR wrong number of arguments for 'zrank' command\r\n";
+  }
+  return engine.zrank(args);
 }

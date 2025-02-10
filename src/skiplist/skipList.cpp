@@ -257,10 +257,11 @@ SkipListIterator SkipList::end_preffix(const std::string &prefix) {
 // 谓词作用于key, 且保证满足谓词的结果只在一段连续的区间内, 例如前缀匹配的谓词
 // predicate返回值:
 //   0: 谓词
-//   1: 不满足谓词, 需要向右移动
-//   -1: 不满足谓词, 需要向左移动
+//   >0: 不满足谓词, 需要向右移动
+//   <0: 不满足谓词, 需要向左移动
 std::optional<std::pair<SkipListIterator, SkipListIterator>>
-SkipList::iters_monotony_predicate(std::function<int(const std::string &)> predicate) {
+SkipList::iters_monotony_predicate(
+    std::function<int(const std::string &)> predicate) {
   auto current = head;
   SkipListIterator begin_iter = SkipListIterator(nullptr);
   SkipListIterator end_iter = SkipListIterator(nullptr);
@@ -280,7 +281,7 @@ SkipList::iters_monotony_predicate(std::function<int(const std::string &)> predi
         find1 = true;
         current = forward_i;
         break;
-      } else if (direction == -1) {
+      } else if (direction < 0) {
         // 下一个位置不满足谓词, 且方向错误(位于目标区间右侧)
         // 需要尝试更小的步长(层级)
         break;
@@ -314,7 +315,7 @@ SkipList::iters_monotony_predicate(std::function<int(const std::string &)> predi
         // 前一个位置满足谓词, 继续判断
         current = current->backward[i].lock();
         continue;
-      } else if (direction == 1) {
+      } else if (direction > 0) {
         // 前一个位置不满足谓词
         // 需要尝试更小的步长(层级)
         break;
@@ -341,7 +342,7 @@ SkipList::iters_monotony_predicate(std::function<int(const std::string &)> predi
         // 后一个位置满足谓词, 继续判断
         current2 = current2->forward[i];
         continue;
-      } else if (direction == -1) {
+      } else if (direction < 0) {
         // 后一个位置不满足谓词
         // 需要尝试更小的步长(层级)
         break;

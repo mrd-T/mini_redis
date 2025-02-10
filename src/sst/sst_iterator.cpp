@@ -6,12 +6,11 @@
 
 // predicate返回值:
 //   0: 谓词
-//   1: 不满足谓词, 需要向右移动
-//   -1: 不满足谓词, 需要向左移动
+//   >0: 不满足谓词, 需要向右移动
+//   <0: 不满足谓词, 需要向左移动
 std::optional<std::pair<SstIterator, SstIterator>> sst_iters_monotony_predicate(
     std::shared_ptr<SST> sst,
     std::function<int(const std::string &)> predicate) {
-  // TODO: 需要单元测试
   std::optional<SstIterator> final_begin = std::nullopt;
   std::optional<SstIterator> final_end = std::nullopt;
   for (int block_idx = 0; block_idx < sst->meta_entries.size(); block_idx++) {

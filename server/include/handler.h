@@ -26,6 +26,13 @@ enum class OPS {
   LLEN,
   LRANGE,
   UNKNOWN,
+  ZADD,
+  ZREM,
+  ZRANGE,
+  ZCARD,
+  ZSCORE,
+  ZINCRBY,
+  ZRANK,
 };
 
 OPS string2Ops(const std::string &opStr);
@@ -54,3 +61,16 @@ std::string rpop_handler(std::vector<std::string> &args, RedisWrapper &engine);
 std::string llen_handler(std::vector<std::string> &args, RedisWrapper &engine);
 std::string lrange_handler(std::vector<std::string> &args,
                            RedisWrapper &engine);
+
+// 集合操作
+std::string zadd_handler(std::vector<std::string> &args, RedisWrapper &engine);
+std::string zrem_handler(std::vector<std::string> &args, RedisWrapper &engine);
+std::string zrange_handler(std::vector<std::string> &args,
+                           RedisWrapper &engine);
+std::string zcard_handler(std::vector<std::string> &args, RedisWrapper &engine);
+std::string zscore_handler(std::vector<std::string> &args,
+                           RedisWrapper &engine);
+std::string zincrby_handler(std::vector<std::string> &args,
+                            RedisWrapper &engine);
+
+std::string zrank_handler(std::vector<std::string> &args, RedisWrapper &engine);

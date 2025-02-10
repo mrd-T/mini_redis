@@ -137,6 +137,20 @@ public:
       return rpop_handler(args, redis);
     case OPS::LRANGE:
       return lrange_handler(args, redis);
+    case OPS::ZADD:
+      return zadd_handler(args, redis);
+    case OPS::ZCARD:
+      return zcard_handler(args, redis);
+    case OPS::ZINCRBY:
+      return zincrby_handler(args, redis);
+    case OPS::ZRANGE:
+      return zrange_handler(args, redis);
+    case OPS::ZRANK:
+      return zrank_handler(args, redis);
+    case OPS::ZSCORE:
+      return zscore_handler(args, redis);
+    case OPS::ZREM:
+      return zrem_handler(args, redis);
     default:
       return "-ERR unknown command '" + args[0] + "'\r\n";
     }

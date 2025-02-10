@@ -219,8 +219,8 @@ std::optional<size_t> Block::get_idx_binary(const std::string &key) {
 // 返回的区间是闭区间, 开区间需要手动对返回值自增
 // predicate返回值:
 //   0: 满足谓词
-//   1: 不满足谓词, 需要向右移动
-//   -1: 不满足谓词, 需要向左移动
+//   >0: 不满足谓词, 需要向右移动
+//   <0: 不满足谓词, 需要向左移动
 std::optional<
     std::pair<std::shared_ptr<BlockIterator>, std::shared_ptr<BlockIterator>>>
 Block::get_monotony_predicate_iters(
@@ -313,7 +313,7 @@ std::optional<
     std::pair<std::shared_ptr<BlockIterator>, std::shared_ptr<BlockIterator>>>
 Block::iters_preffix(const std::string &preffix) {
   auto func = [&preffix](const std::string &key) {
-    return key.compare(0, preffix.size(), preffix) == 0;
+    return -key.compare(0, preffix.size(), preffix);
   };
   return get_monotony_predicate_iters(func);
 }

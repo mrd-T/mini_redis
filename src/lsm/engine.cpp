@@ -99,9 +99,21 @@ void LSMEngine::put(const std::string &key, const std::string &value) {
   }
 }
 
+void LSMEngine::put_batch(
+    const std::vector<std::pair<std::string, std::string>> &kvs) {
+  memtable.put_batch(kvs);
+  // 如果 memtable 太大，需要刷新到磁盘
+  if (memtable.get_total_size() >= LSM_TOL_MEM_SIZE_LIMIT) {
+    flush();
+  }
+}
 void LSMEngine::remove(const std::string &key) {
   // 在 LSM 中，删除实际上是插入一个空值
   memtable.remove(key);
+}
+
+void LSMEngine::remove_batch(const std::vector<std::string> &keys) {
+  memtable.remove_batch(keys);
 }
 
 void LSMEngine::flush() {
@@ -211,10 +223,20 @@ LSM::~LSM() {
 std::optional<std::string> LSM::get(const std::string &key) {
   return engine.get(key);
 }
+
 void LSM::put(const std::string &key, const std::string &value) {
   engine.put(key, value);
 }
+
+void LSM::put_batch(
+    const std::vector<std::pair<std::string, std::string>> &kvs) {
+  engine.put_batch(kvs);
+}
 void LSM::remove(const std::string &key) { engine.remove(key); }
+
+void LSM::remove_batch(const std::vector<std::string> &keys) {
+  engine.remove_batch(keys);
+}
 void LSM::flush() { engine.flush(); }
 
 LSM::LSMIterator LSM::begin() { return engine.begin(); }

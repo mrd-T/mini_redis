@@ -26,8 +26,12 @@ public:
   ~MemTable();
 
   void put(const std::string &key, const std::string &value);
+  void put_batch(const std::vector<std::pair<std::string, std::string>> &kvs);
+
   std::optional<std::string> get(const std::string &key);
   void remove(const std::string &key);
+  void remove_batch(const std::vector<std::string> &keys);
+
   void clear();
   std::shared_ptr<SST> flush_last(SSTBuilder &builder, std::string &sst_path,
                                   size_t sst_id,

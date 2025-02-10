@@ -26,6 +26,8 @@ private:
 
   bool expire_list_clean(const std::string &key,
                          std::shared_lock<std::shared_mutex> &rlock);
+  bool expire_zset_clean(const std::string &key,
+                         std::shared_lock<std::shared_mutex> &rlock);
 
 public:
   RedisWrapper(const std::string &db_path);
@@ -51,6 +53,14 @@ public:
   std::string rpop(std::vector<std::string> &args);
   std::string llen(std::vector<std::string> &args);
   std::string lrange(std::vector<std::string> &args);
+  // 有序集合操作
+  std::string zadd(std::vector<std::string> &args);
+  std::string zrem(std::vector<std::string> &args);
+  std::string zrange(std::vector<std::string> &args);
+  std::string zcard(std::vector<std::string> &args);
+  std::string zscore(std::vector<std::string> &args);
+  std::string zincrby(std::vector<std::string> &args);
+  std::string zrank(std::vector<std::string> &args);
 
 private:
   // ************************* Redis Command Handler *************************
@@ -62,6 +72,7 @@ private:
   std::string redis_get(std::string &key);
   std::string redis_del(std::vector<std::string> &args);
   std::string redis_ttl(std::string &key);
+
   // 哈希操作
   std::string redis_hset(const std::string &key, const std::string &field,
                          const std::string &value);
@@ -75,4 +86,14 @@ private:
   std::string redis_rpop(const std::string &key);
   std::string redis_llen(const std::string &key);
   std::string redis_lrange(const std::string &key, int start, int stop);
+  // 有序集合操作
+  std::string redis_zadd(std::vector<std::string> &args);
+  std::string redis_zrem(std::vector<std::string> &args);
+  std::string redis_zrange(std::vector<std::string> &args);
+  std::string redis_zcard(const std::string &key);
+  std::string redis_zscore(const std::string &key, const std::string &elem);
+  std::string redis_zincrby(const std::string &key,
+                            const std::string &increment,
+                            const std::string &elem);
+  std::string redis_zrank(const std::string &key, const std::string &elem);
 };

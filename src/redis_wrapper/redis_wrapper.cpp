@@ -2,11 +2,14 @@
 #include "../../include/consts.h"
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
+#include <iomanip>
 #include <optional>
 #include <shared_mutex>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 // Helper functions
@@ -54,6 +57,49 @@ inline bool is_value_hash(const std::string &key) {
 
 inline std::string get_explire_key(const std::string &key) {
   return REDIS_EXPIRE_HEADER + key;
+}
+
+std::string get_zset_key_socre(const std::string &key,
+                               const std::string &score) {
+  std::ostringstream oss;
+  oss << std::setw(REDIS_SORTED_SET_SCORE_LEN) << std::setfill('0') << score;
+
+  std::string formatted_score = oss.str();
+
+  std::string res = REDIS_SORTED_SET_PREFIX + key + "_SCORE_" + formatted_score;
+  return res;
+}
+
+inline std::string get_zset_key_elem(const std::string &key,
+                                     const std::string &elem) {
+  return REDIS_SORTED_SET_PREFIX + key + "_ELEM_" + elem;
+}
+
+inline std::string get_zset_key_preffix(const std::string &key) {
+  return REDIS_SORTED_SET_PREFIX + key + "_";
+}
+
+inline std::string get_zset_score_preffix(const std::string &key) {
+  return REDIS_SORTED_SET_PREFIX + key + "_SCORE_";
+}
+
+inline std::string get_zset_elem_preffix(const std::string &key) {
+  return REDIS_SORTED_SET_PREFIX + key + "_ELEM_";
+}
+
+inline std::string get_zset_score_item(const std::string &key) {
+  // 定义 _SCORE_ 的前缀
+  const std::string score_prefix = "_SCORE_";
+
+  // 找到 _SCORE_ 的位置
+  size_t score_pos = key.find(score_prefix);
+
+  // 如果找到了 _SCORE_，则返回其右边的部分；否则返回空字符串
+  if (score_pos != std::string::npos) {
+    return key.substr(score_pos + score_prefix.size());
+  } else {
+    return "";
+  }
 }
 
 bool is_expired(const std::optional<std::string> &expire_str,
@@ -144,6 +190,35 @@ bool RedisWrapper::expire_list_clean(
   return false;
 }
 
+bool RedisWrapper::expire_zset_clean(
+    const std::string &key, std::shared_lock<std::shared_mutex> &rlock) {
+  std::string expire_key = get_explire_key(key);
+  auto expire_query = this->lsm->get(expire_key);
+  if (is_expired(expire_query, nullptr)) {
+    // 都过期了, 需要删除zset
+    // 先升级锁
+    rlock.unlock();                                       // 解锁读锁
+    std::unique_lock<std::shared_mutex> wlock(redis_mtx); // 写锁
+    lsm->remove(key);
+    lsm->remove(expire_key);
+    auto preffix = get_zset_key_preffix(key);
+    auto result_elem = this->lsm->lsm_iters_monotony_predicate(
+        [&preffix](const std::string &elem) {
+          return -elem.compare(0, preffix.size(), preffix);
+        });
+    if (result_elem.has_value()) {
+      auto [elem_begin, elem_end] = result_elem.value();
+      std::vector<std::string> remove_vec;
+      for (; elem_begin != elem_end; ++elem_begin) {
+        remove_vec.push_back(elem_begin->first);
+      }
+      lsm->remove_batch(remove_vec);
+    }
+    return true;
+  }
+  return false;
+}
+
 // ************************* Redis Command *************************
 // 基础操作
 std::string RedisWrapper::set(std::vector<std::string> &args) {
@@ -209,6 +284,35 @@ std::string RedisWrapper::lrange(std::vector<std::string> &args) {
   int end = std::stoi(args[3]);
 
   return redis_lrange(args[1], start, end);
+}
+
+// 有序集合操作
+std::string RedisWrapper::zadd(std::vector<std::string> &args) {
+  return redis_zadd(args);
+}
+
+std::string RedisWrapper::zrem(std::vector<std::string> &args) {
+  return redis_zrem(args);
+}
+
+std::string RedisWrapper::zrange(std::vector<std::string> &args) {
+  return redis_zrange(args);
+}
+
+std::string RedisWrapper::zcard(std::vector<std::string> &args) {
+
+  return redis_zcard(args[1]);
+}
+
+std::string RedisWrapper::zscore(std::vector<std::string> &args) {
+  return redis_zscore(args[1], args[2]);
+}
+std::string RedisWrapper::zincrby(std::vector<std::string> &args) {
+  return redis_zincrby(args[1], args[2], args[3]);
+}
+
+std::string RedisWrapper::zrank(std::vector<std::string> &args) {
+  return redis_zrank(args[1], args[2]);
 }
 
 // *********************** Redis ***********************
@@ -660,4 +764,269 @@ std::string RedisWrapper::redis_lrange(const std::string &key, int start,
     oss << "$" << elements[i].size() << "\r\n" << elements[i] << "\r\n";
   }
   return oss.str();
+}
+
+std::string RedisWrapper::redis_zadd(std::vector<std::string> &args) {
+  std::string key = args[1];
+  std::shared_lock<std::shared_mutex> rlock(redis_mtx); // 读锁
+  bool is_expired = expire_zset_clean(key, rlock);
+
+  if (!is_expired) {
+    // 如果过期了, 会执行清理操作, expire_hash_clean 会升级读锁
+    // 这次操作还会继续, 因为相当于新建
+    // 没有过期过期, 需要手动释放读锁
+    rlock.unlock();
+  }
+  std::unique_lock<std::shared_mutex> lock(redis_mtx); // 写锁
+
+  std::vector<std::pair<std::string, std::string>> put_kvs;
+  std::vector<std::string> del_keys;
+
+  auto value = get_zset_key_preffix(key); // 直接将 前缀 作为 value
+  if (!lsm->get(value).has_value()) {
+    // 如果不存在, 需要新建
+    put_kvs.emplace_back(key, value);
+  }
+
+  std::vector<std::string> remove_keys;
+  int added_count = 0;
+  for (size_t i = 2; i < args.size(); i += 2) {
+    std::string score = args[i];
+    std::string elem = args[i + 1];
+    std::string key_score = get_zset_key_socre(key, score);
+    std::string key_elem = get_zset_key_elem(key, elem);
+
+    auto query_elem = lsm->get(key_elem);
+
+    if (query_elem.has_value()) {
+      // 将以前的旧记录删除
+      std::string original_score = query_elem.value();
+      if (original_score == score) {
+        // 不需要更新score
+        continue;
+      }
+      // 需要移除旧 score
+      std::string original_key_score = get_zset_key_socre(key, original_score);
+      remove_keys.push_back(original_key_score);
+    }
+    put_kvs.emplace_back(key_score, elem);
+    put_kvs.emplace_back(key_elem, score);
+    added_count++;
+  }
+  lsm->remove_batch(del_keys);
+  lsm->put_batch(put_kvs);
+
+  return ":" + std::to_string(added_count) + "\r\n";
+}
+
+std::string RedisWrapper::redis_zrem(std::vector<std::string> &args) {
+  if (args.size() < 3) {
+    return "-ERR wrong number of arguments for 'zrem' command\r\n";
+  }
+
+  std::string key = args[1];
+  std::shared_lock<std::shared_mutex> rlock(redis_mtx); // 读锁
+  bool is_expired = expire_zset_clean(key, rlock);
+
+  if (is_expired) {
+    return ":0\r\n";
+  }
+
+  rlock.unlock();
+  std::unique_lock<std::shared_mutex> lock(redis_mtx); // 写锁
+
+  int removed_count = 0;
+  for (size_t i = 2; i < args.size(); ++i) {
+    std::string elem = args[i];
+    std::string key_elem = get_zset_key_elem(key, elem);
+
+    auto query_elem = lsm->get(key_elem);
+    if (query_elem.has_value()) {
+      std::string score = query_elem.value();
+      std::string key_score = get_zset_key_socre(key, score);
+      lsm->remove(key_elem);
+      lsm->remove(key_score);
+      removed_count++;
+    }
+  }
+
+  return ":" + std::to_string(removed_count) + "\r\n";
+}
+
+std::string RedisWrapper::redis_zrange(std::vector<std::string> &args) {
+  std::string key = args[1];
+  int start = std::stoi(args[2]);
+  int stop = std::stoi(args[3]);
+
+  std::shared_lock<std::shared_mutex> rlock(redis_mtx); // 读锁
+  bool is_expired = expire_zset_clean(key, rlock);
+
+  if (is_expired) {
+    return "*0\r\n";
+  }
+
+  // 范围查询: 按照 score 查询就能满足 zrange 的顺序
+  std::string preffix_score = get_zset_score_preffix(key);
+  auto result_elem = this->lsm->lsm_iters_monotony_predicate(
+      [&preffix_score](const std::string &elem) {
+        return -elem.compare(0, preffix_score.size(), preffix_score);
+      });
+
+  if (!result_elem.has_value()) {
+    return "*0\r\n";
+  }
+
+  auto [elem_begin, elem_end] = result_elem.value();
+  std::vector<std::pair<std::string, std::string>> elements;
+  for (; elem_begin != elem_end; ++elem_begin) {
+    std::string key_score = elem_begin->first;
+    std::string elem = elem_begin->second;
+    std::string score = get_zset_score_item(key_score);
+    elements.emplace_back(score, elem);
+  }
+
+  if (start < 0)
+    start += elements.size();
+  if (stop < 0)
+    stop += elements.size();
+  if (start < 0)
+    start = 0;
+  if (stop >= elements.size())
+    stop = elements.size() - 1;
+  if (start > stop)
+    return "*0\r\n";
+
+  std::ostringstream oss;
+  oss << "*" << (stop - start + 1) << "\r\n";
+  for (int i = start; i <= stop; ++i) {
+    oss << "$" << elements[i].second.size() << "\r\n"
+        << elements[i].second << "\r\n";
+  }
+  return oss.str();
+}
+
+std::string RedisWrapper::redis_zcard(const std::string &key) {
+  std::shared_lock<std::shared_mutex> rlock(redis_mtx); // 读锁
+  bool is_expired = expire_zset_clean(key, rlock);
+
+  if (is_expired) {
+    return ":0\r\n";
+  }
+
+  // key_score 和 key_elem 是一对, 所以只需要一个即可
+  std::string preffix = get_zset_score_preffix(key);
+  auto result_elem = this->lsm->lsm_iters_monotony_predicate(
+      [&preffix](const std::string &elem) {
+        return -elem.compare(0, preffix.size(), preffix);
+      });
+
+  if (!result_elem.has_value()) {
+    return ":0\r\n";
+  }
+
+  auto [elem_begin, elem_end] = result_elem.value();
+  int count = 0;
+  while (elem_begin != elem_end) {
+    count++;
+    ++elem_begin;
+  }
+
+  return ":" + std::to_string(count) + "\r\n";
+}
+
+std::string RedisWrapper::redis_zscore(const std::string &key,
+                                       const std::string &elem) {
+  std::shared_lock<std::shared_mutex> rlock(redis_mtx); // 读锁
+  bool is_expired = expire_zset_clean(key, rlock);
+
+  if (is_expired) {
+    return "$-1\r\n";
+  }
+
+  std::string key_elem = get_zset_key_elem(key, elem);
+  auto query_elem = lsm->get(key_elem);
+
+  if (query_elem.has_value()) {
+    return "$" + std::to_string(query_elem.value().size()) + "\r\n" +
+           query_elem.value() + "\r\n";
+  } else {
+    return "$-1\r\n"; // 表示成员不存在
+  }
+}
+
+std::string RedisWrapper::redis_zincrby(const std::string &key,
+                                        const std::string &increment,
+                                        const std::string &elem) {
+  std::shared_lock<std::shared_mutex> rlock(redis_mtx); // 读锁
+  bool is_expired = expire_zset_clean(key, rlock);
+
+  if (!is_expired) {
+    rlock.unlock();
+  }
+  std::unique_lock<std::shared_mutex> lock(redis_mtx); // 写锁
+
+  std::string key_elem = get_zset_key_elem(key, elem);
+  auto query_elem = lsm->get(key_elem);
+
+  uint64_t new_score;
+  if (query_elem.has_value()) {
+    std::string original_score = query_elem.value();
+    new_score = std::stol(original_score) + std::stod(increment);
+    std::string original_key_score = get_zset_key_socre(key, original_score);
+    lsm->remove(original_key_score);
+  } else {
+    // 如果查询不到, 则相当于新建
+    new_score = std::stod(increment);
+  }
+
+  std::string new_score_str = std::to_string(new_score);
+  std::string key_score = get_zset_key_socre(key, new_score_str);
+
+  lsm->put(key_elem, new_score_str);
+  lsm->put(key_score, elem);
+
+  return ":" + new_score_str + "\r\n";
+}
+
+std::string RedisWrapper::redis_zrank(const std::string &key,
+                                      const std::string &elem) {
+  std::shared_lock<std::shared_mutex> rlock(redis_mtx); // 读锁
+  bool is_expired = expire_zset_clean(key, rlock);
+
+  if (is_expired) {
+    return "$-1\r\n";
+  }
+
+  // 获取元素对应的 score
+  std::string key_elem = get_zset_key_elem(key, elem);
+  auto query_elem = lsm->get(key_elem);
+
+  if (!query_elem.has_value()) {
+    return "$-1\r\n"; // 表示成员不存在
+  }
+
+  std::string score = query_elem.value();
+  std::string key_score = get_zset_key_socre(key, score);
+
+  // 获取有序集合的前缀
+  std::string preffix_score = get_zset_key_preffix(key);
+  auto result_elem = this->lsm->lsm_iters_monotony_predicate(
+      [&preffix_score](const std::string &elem) {
+        return -elem.compare(0, preffix_score.size(), preffix_score);
+      });
+
+  if (!result_elem.has_value()) {
+    return "$-1\r\n";
+  }
+
+  auto [elem_begin, elem_end] = result_elem.value();
+  int rank = 0;
+  for (; elem_begin != elem_end; ++elem_begin) {
+    if (elem_begin->first == key_score) {
+      return ":" + std::to_string(rank) + "\r\n";
+    }
+    rank++;
+  }
+
+  return "$-1\r\n"; // 表示成员不存在
 }

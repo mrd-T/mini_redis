@@ -7,6 +7,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 class LSMEngine {
 public:
@@ -21,8 +22,11 @@ public:
   ~LSMEngine();
 
   std::optional<std::string> get(const std::string &key);
+
   void put(const std::string &key, const std::string &value);
+  void put_batch(const std::vector<std::pair<std::string, std::string>> &kvs);
   void remove(const std::string &key);
+  void remove_batch(const std::vector<std::string> &keys);
   void flush();
   void flush_all();
 
@@ -45,8 +49,12 @@ public:
   ~LSM();
 
   std::optional<std::string> get(const std::string &key);
+
   void put(const std::string &key, const std::string &value);
+  void put_batch(const std::vector<std::pair<std::string, std::string>> &kvs);
+
   void remove(const std::string &key);
+  void remove_batch(const std::vector<std::string> &keys);
 
   using LSMIterator = MergeIterator;
   LSMIterator begin();

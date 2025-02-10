@@ -46,6 +46,12 @@ MergeIterator &MergeIterator::operator++() {
 }
 
 bool MergeIterator::operator==(const MergeIterator &other) const {
+  if (this->is_end() && other.is_end()) {
+    return true;
+  }
+  if (this->is_end() && other.is_end()) {
+    return false;
+  }
   return it_a == other.it_a && it_b == other.it_b && choose_a == other.choose_a;
 }
 

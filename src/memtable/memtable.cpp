@@ -25,6 +25,14 @@ void MemTable::put(const std::string &key, const std::string &value) {
   current_table->put(key, value);
 }
 
+void MemTable::put_batch(
+    const std::vector<std::pair<std::string, std::string>> &kvs) {
+  std::unique_lock<std::shared_mutex> lock(rx_mtx);
+  for (auto &[k, v] : kvs) {
+    current_table->put(k, v);
+  }
+}
+
 std::optional<std::string> MemTable::get(const std::string &key) {
   std::shared_lock<std::shared_mutex> slock(rx_mtx);
   // 首先检查当前活跃的memtable
@@ -51,6 +59,14 @@ void MemTable::remove(const std::string &key) {
   std::unique_lock<std::shared_mutex> lock(rx_mtx);
   // 删除的方式是写入空值
   current_table->put(key, "");
+}
+
+void MemTable::remove_batch(const std::vector<std::string> &keys) {
+  std::unique_lock<std::shared_mutex> lock(rx_mtx);
+  // 删除的方式是写入空值
+  for (auto &key : keys) {
+    current_table->put(key, "");
+  }
 }
 
 void MemTable::clear() {

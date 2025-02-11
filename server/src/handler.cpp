@@ -15,7 +15,11 @@ std::string toLower(const std::string &str) {
 OPS string2Ops(const std::string &opStr) {
   std::string lowerOpStr = toLower(opStr);
 
-  if (lowerOpStr == "get") {
+  if (lowerOpStr == "flushall") {
+    return OPS::FLUSHALL;
+  } else if (lowerOpStr == "save") {
+    return OPS::SAVE;
+  } else if (lowerOpStr == "get") {
     return OPS::GET;
   } else if (lowerOpStr == "set") {
     return OPS::SET;
@@ -66,6 +70,17 @@ OPS string2Ops(const std::string &opStr) {
   } else {
     return OPS::UNKNOWN;
   }
+}
+
+std::string flushall_handler(RedisWrapper &engine) {
+  engine.clear();
+  return "+OK\r\n";
+}
+
+std::string save_handler(RedisWrapper &engine) {
+  // 这里数据库中的flush是指刷盘的意思, 和redis中的flush含义不同
+  engine.flushall();
+  return "+OK\r\n";
 }
 
 // **************************** 基础操作 ****************************

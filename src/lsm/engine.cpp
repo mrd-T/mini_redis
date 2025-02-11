@@ -116,6 +116,19 @@ void LSMEngine::remove_batch(const std::vector<std::string> &keys) {
   memtable.remove_batch(keys);
 }
 
+void LSMEngine::clear() {
+  memtable.clear();
+  l0_sst_ids.clear();
+  ssts.clear();
+  // 清空当前文件夹的所有内容
+  for (const auto &entry : std::filesystem::directory_iterator(data_dir)) {
+    if (!entry.is_regular_file()) {
+      continue;
+    }
+    std::filesystem::remove(entry.path());
+  }
+}
+
 void LSMEngine::flush() {
   if (memtable.get_total_size() == 0) {
     return;
@@ -171,7 +184,9 @@ LSMEngine::lsm_iters_monotony_predicate(
     }
     auto [it_begin, it_end] = result.value();
     for (; it_begin != it_end && it_begin.is_valid(); ++it_begin) {
-      item_vec.emplace_back(it_begin.key(), it_begin.value(), sst_idx);
+      // 这里越古老的sst的idx越小, 我们需要让新的sst优先在堆顶
+      // 让新的sst(拥有更大的idx)排序在前面, 反转符号就行了
+      item_vec.emplace_back(it_begin.key(), it_begin.value(), -sst_idx);
     }
   }
 
@@ -200,7 +215,9 @@ MergeIterator LSMEngine::begin() {
   for (auto &sst_id : l0_sst_ids) {
     auto sst = ssts[sst_id];
     for (auto iter = sst->begin(); iter != sst->end(); ++iter) {
-      item_vec.emplace_back(iter.key(), iter.value(), sst_id);
+      // 这里越古老的sst的idx越小, 我们需要让新的sst优先在堆顶
+      // 让新的sst(拥有更大的idx)排序在前面, 反转符号就行了
+      item_vec.emplace_back(iter.key(), iter.value(), -sst_id);
     }
   }
   HeapIterator l0_iter(item_vec);
@@ -237,7 +254,12 @@ void LSM::remove(const std::string &key) { engine.remove(key); }
 void LSM::remove_batch(const std::vector<std::string> &keys) {
   engine.remove_batch(keys);
 }
+
+void LSM::clear() { engine.clear(); }
+
 void LSM::flush() { engine.flush(); }
+
+void LSM::flush_all() { engine.flush_all(); }
 
 LSM::LSMIterator LSM::begin() { return engine.begin(); }
 LSM::LSMIterator LSM::end() { return engine.end(); }

@@ -103,6 +103,10 @@ public:
 
     // 处理命令
     switch (string2Ops(args[0])) {
+    case OPS::FLUSHALL:
+      return flushall_handler(redis);
+    case OPS::SAVE:
+      return save_handler(redis);
     case OPS::SET:
       return set_handler(args, redis);
     case OPS::GET:

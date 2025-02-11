@@ -31,6 +31,8 @@ private:
 
 public:
   RedisWrapper(const std::string &db_path);
+  void clear();
+  void flushall();
 
   // ************************* Redis Command Parser *************************
   // 基础操作

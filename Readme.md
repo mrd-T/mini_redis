@@ -134,6 +134,9 @@ Then you can use redis-cli to connect to the server:
     - [x] ZSCORE
     - [x] ZRANK
     - [x] ZINCRBY
+  - [x] IO Operations
+    - [x] FLUSHALL
+    - [x] SAVE
 
 ## License
 

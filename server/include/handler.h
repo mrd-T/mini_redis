@@ -6,6 +6,9 @@
 #include <vector>
 
 enum class OPS {
+  // IO操作
+  FLUSHALL,
+  SAVE,
   // 基础操作
   GET,
   SET,
@@ -36,6 +39,9 @@ enum class OPS {
 };
 
 OPS string2Ops(const std::string &opStr);
+
+std::string flushall_handler(RedisWrapper &engine);
+std::string save_handler(RedisWrapper &engine);
 
 // 基础操作
 std::string set_handler(std::vector<std::string> &args, RedisWrapper &engine);

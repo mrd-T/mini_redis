@@ -27,6 +27,7 @@ public:
   void put_batch(const std::vector<std::pair<std::string, std::string>> &kvs);
   void remove(const std::string &key);
   void remove_batch(const std::vector<std::string> &keys);
+  void clear();
   void flush();
   void flush_all();
 
@@ -62,5 +63,7 @@ public:
   std::optional<std::pair<MergeIterator, MergeIterator>>
   lsm_iters_monotony_predicate(
       std::function<int(const std::string &)> predicate);
+  void clear();
   void flush();
+  void flush_all();
 };

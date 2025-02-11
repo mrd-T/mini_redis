@@ -315,6 +315,9 @@ std::string RedisWrapper::zrank(std::vector<std::string> &args) {
   return redis_zrank(args[1], args[2]);
 }
 
+void RedisWrapper::clear() { this->lsm->clear(); }
+void RedisWrapper::flushall() { this->lsm->flush(); }
+
 // *********************** Redis ***********************
 // 基础操作
 std::string RedisWrapper::redis_incr(const std::string &key) {

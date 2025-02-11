@@ -10,6 +10,7 @@
 
 // *********************** LSMEngine ***********************
 LSMEngine::LSMEngine(std::string path) : data_dir(path) {
+  // TODO: 现在只有 l0 sst, 之后的命名需要重新设计前缀, 统一由函数拼接返回
   // 初始化 block_cahce
   block_cache = std::make_shared<BlockCache>(LSMmm_BLOCK_CACHE_CAPACITY,
                                              LSMmm_BLOCK_CACHE_K);
@@ -50,6 +51,9 @@ LSMEngine::LSMEngine(std::string path) : data_dir(path) {
 
     // 按ID排序，确保顺序一致
     l0_sst_ids.sort();
+    // 由于 sst_id 越大, 表示是越晚刷入的, 在后续查询时需要优先考虑,
+    // 故需要从大到小排序
+    l0_sst_ids.reverse();
   }
 }
 
@@ -74,6 +78,8 @@ std::optional<std::string> LSMEngine::get(const std::string &key) {
   // 2. l0 sst中查询
   std::shared_lock<std::shared_mutex> rlock(ssts_mtx); // 读锁
   for (auto &sst_id : l0_sst_ids) {
+    // l0_sst_ids 中的 sst_id 是按从大到小的顺序排列,
+    // sst_id 越大, 表示是越晚刷入的, 优先查询
     auto sst = ssts[sst_id];
     auto sst_iterator = sst->get(key);
     if (sst_iterator != sst->end()) {
@@ -135,7 +141,8 @@ void LSMEngine::flush() {
   }
 
   // 1. 创建新的 SST ID
-  size_t new_sst_id = l0_sst_ids.empty() ? 0 : l0_sst_ids.back() + 1;
+  // 链表头部存储的是最新刷入的sst, 其sst_id最大
+  size_t new_sst_id = l0_sst_ids.empty() ? 0 : l0_sst_ids.front() + 1;
   // ! 这里有内存安全问题, 因为可能多个 flush 获取了同一个
   // new_sst_id, 但后续有WAL, 故先忽略这个问题, 且这个概率很小
 
@@ -152,7 +159,7 @@ void LSMEngine::flush() {
   ssts[new_sst_id] = new_sst;
 
   // 5. 更新 sst_ids
-  l0_sst_ids.push_back(new_sst_id);
+  l0_sst_ids.push_front(new_sst_id);
 }
 
 void LSMEngine::flush_all() {
@@ -215,7 +222,7 @@ MergeIterator LSMEngine::begin() {
   for (auto &sst_id : l0_sst_ids) {
     auto sst = ssts[sst_id];
     for (auto iter = sst->begin(); iter != sst->end(); ++iter) {
-      // 这里越古老的sst的idx越小, 我们需要让新的sst优先在堆顶
+      // 这里越新的sst的idx越大, 我们需要让新的sst优先在堆顶
       // 让新的sst(拥有更大的idx)排序在前面, 反转符号就行了
       item_vec.emplace_back(iter.key(), iter.value(), -sst_id);
     }

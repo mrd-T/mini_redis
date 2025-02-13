@@ -22,13 +22,14 @@ enum class OPS {
   HGET,
   HDEL,
   HKEYS,
+  // 链表操作
   LPUSH,
   RPUSH,
   LPOP,
   RPOP,
   LLEN,
   LRANGE,
-  UNKNOWN,
+  // 有序集合操作
   ZADD,
   ZREM,
   ZRANGE,
@@ -36,6 +37,14 @@ enum class OPS {
   ZSCORE,
   ZINCRBY,
   ZRANK,
+  // 集合操作
+  SADD,
+  SREM,
+  SISMEMBER,
+  SCARD,
+  SMEMBERS,
+  // 其他
+  UNKNOWN,
 };
 
 OPS string2Ops(const std::string &opStr);
@@ -80,3 +89,16 @@ std::string zincrby_handler(std::vector<std::string> &args,
                             RedisWrapper &engine);
 
 std::string zrank_handler(std::vector<std::string> &args, RedisWrapper &engine);
+
+// 无序集合操作
+std::string sadd_handler(std::vector<std::string> &args, RedisWrapper &engine);
+
+std::string srem_handler(std::vector<std::string> &args, RedisWrapper &engine);
+
+std::string sismember_handler(std::vector<std::string> &args,
+                              RedisWrapper &engine);
+
+std::string scard_handler(std::vector<std::string> &args, RedisWrapper &engine);
+
+std::string smembers_handler(std::vector<std::string> &args,
+                             RedisWrapper &engine);

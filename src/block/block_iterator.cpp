@@ -14,7 +14,7 @@ BlockIterator::BlockIterator(std::shared_ptr<Block> b, const std::string &key)
   if (key_idx_ops.has_value()) {
     current_index = key_idx_ops.value();
   } else {
-    throw std::runtime_error("key not found");
+    current_index = block->offsets.size();
   }
 }
 

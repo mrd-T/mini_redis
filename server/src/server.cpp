@@ -155,6 +155,16 @@ public:
       return zscore_handler(args, redis);
     case OPS::ZREM:
       return zrem_handler(args, redis);
+    case OPS::SADD:
+      return sadd_handler(args, redis);
+    case OPS::SMEMBERS:
+      return smembers_handler(args, redis);
+    case OPS::SCARD:
+      return scard_handler(args, redis);
+    case OPS::SISMEMBER:
+      return sismember_handler(args, redis);
+    case OPS::SREM:
+      return srem_handler(args, redis);
     default:
       return "-ERR unknown command '" + args[0] + "'\r\n";
     }

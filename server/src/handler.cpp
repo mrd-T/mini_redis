@@ -67,6 +67,16 @@ OPS string2Ops(const std::string &opStr) {
     return OPS::ZREM;
   } else if (lowerOpStr == "zscore") {
     return OPS::ZSCORE;
+  } else if (lowerOpStr == "sadd") {
+    return OPS::SADD;
+  } else if (lowerOpStr == "scard") {
+    return OPS::SCARD;
+  } else if (lowerOpStr == "smembers") {
+    return OPS::SMEMBERS;
+  } else if (lowerOpStr == "srem") {
+    return OPS::SREM;
+  } else if (lowerOpStr == "sismember") {
+    return OPS::SISMEMBER;
   } else {
     return OPS::UNKNOWN;
   }
@@ -317,4 +327,43 @@ std::string zrank_handler(std::vector<std::string> &args,
     return "-ERR wrong number of arguments for 'zrank' command\r\n";
   }
   return engine.zrank(args);
+}
+
+// ******************************* 无序集合操作 ******************************
+std::string sadd_handler(std::vector<std::string> &args, RedisWrapper &engine) {
+  if (args.size() < 3) {
+    return "-ERR wrong number of arguments for 'sadd' command\r\n";
+  }
+  return engine.sadd(args);
+}
+
+std::string srem_handler(std::vector<std::string> &args, RedisWrapper &engine) {
+  if (args.size() < 3) {
+    return "-ERR wrong number of arguments for 'srem' command\r\n";
+  }
+  return engine.srem(args);
+}
+
+std::string sismember_handler(std::vector<std::string> &args,
+                              RedisWrapper &engine) {
+  if (args.size() != 3) {
+    return "-ERR wrong number of arguments for 'sismember' command\r\n";
+  }
+  return engine.sismember(args);
+}
+
+std::string scard_handler(std::vector<std::string> &args,
+                          RedisWrapper &engine) {
+  if (args.size() != 2) {
+    return "-ERR wrong number of arguments for 'scard' command\r\n";
+  }
+  return engine.scard(args);
+}
+
+std::string smembers_handler(std::vector<std::string> &args,
+                             RedisWrapper &engine) {
+  if (args.size() != 2) {
+    return "-ERR wrong number of arguments for 'smembers' command\r\n";
+  }
+  return engine.smembers(args);
 }

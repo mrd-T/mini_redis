@@ -117,7 +117,8 @@ TEST_F(RedisCommandsTest, HDel) {
   std::vector<std::string> hget_args1 = {"HGET", key, field1};
   EXPECT_EQ(lsm.hget(hget_args1), "$-1\r\n"); // Field1 should be deleted
   std::vector<std::string> hget_args2 = {"HGET", key, field2};
-  EXPECT_EQ(lsm.hget(hget_args2), "$" + std::to_string(value2.size()) + "\r\n" +
+  EXPECT_EQ(lsm.hget(hget_args2), "$" + std::to_string(value2.size()) +
+  "\r\n" +
                                       value2 +
                                       "\r\n"); // Field2 should still exist
 }
@@ -281,6 +282,50 @@ TEST_F(RedisCommandsTest, ZSetOperations) {
   // 8. 再次使用 ZCARD 获取有序集合的成员数量，验证成员是否被删除
   res = lsm.zcard(zcard_args1);
   EXPECT_EQ(res, ":2\r\n");
+}
+
+TEST_F(RedisCommandsTest, SetOperations) {
+  RedisWrapper lsm(test_dir);
+
+  // 测试 sadd 命令
+  std::vector<std::string> sadd_args1 = {"SADD", "myset", "member1", "member2",
+                                         "member3"};
+  EXPECT_EQ(lsm.sadd(sadd_args1), ":3\r\n");
+
+  // 测试 scard 命令
+  std::vector<std::string> scard_args = {"SCARD", "myset"};
+  EXPECT_EQ(lsm.scard(scard_args), ":3\r\n");
+
+  // 测试 sismember 命令
+  std::vector<std::string> sismember_args1 = {"SISMEMBER", "myset", "member1"};
+  EXPECT_EQ(lsm.sismember(sismember_args1), ":1\r\n");
+  std::vector<std::string> sismember_args2 = {"SISMEMBER", "myset", "member4"};
+  EXPECT_EQ(lsm.sismember(sismember_args2), ":0\r\n");
+
+  // 测试 smembers 命令
+  std::vector<std::string> smembers_args = {"SMEMBERS", "myset"};
+  std::string expected_smembers =
+      "*3\r\n$7\r\nmember1\r\n$7\r\nmember2\r\n$7\r\nmember3\r\n";
+  EXPECT_EQ(lsm.smembers(smembers_args), expected_smembers);
+
+  // 测试 srem 命令
+  std::vector<std::string> srem_args1 = {"SREM", "myset", "member1", "member3"};
+  EXPECT_EQ(lsm.srem(srem_args1), ":2\r\n");
+
+  // 再次测试 scard 命令
+  EXPECT_EQ(lsm.scard(scard_args), ":1\r\n");
+
+  // 再次测试 smembers 命令
+  std::string expected_smembers_after_rem = "*1\r\n$7\r\nmember2\r\n";
+  EXPECT_EQ(lsm.smembers(smembers_args), expected_smembers_after_rem);
+
+  // 再次测试 sismember 命令
+  std::vector<std::string> sismember_args3 = {"SISMEMBER", "myset", "member1"};
+  EXPECT_EQ(lsm.sismember(sismember_args3), ":0\r\n");
+  std::vector<std::string> sismember_args4 = {"SISMEMBER", "myset", "member2"};
+  EXPECT_EQ(lsm.sismember(sismember_args4), ":1\r\n");
+  std::vector<std::string> sismember_args5 = {"SISMEMBER", "myset", "member3"};
+  EXPECT_EQ(lsm.sismember(sismember_args5), ":0\r\n");
 }
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);

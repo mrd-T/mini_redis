@@ -102,6 +102,21 @@ inline std::string get_zset_score_item(const std::string &key) {
   }
 }
 
+inline std::string get_set_key_preffix(const std::string &key) {
+  return REDIS_SET_PREFIX + key + "_";
+}
+
+inline std::string get_set_member_key(const std::string &key,
+                                      const std::string &elem) {
+  return REDIS_SET_PREFIX + key + "_" + elem;
+}
+
+inline std::string get_set_member_value() { return "1"; }
+
+inline std::string get_set_member_prefix(const std::string &key) {
+  return REDIS_SET_PREFIX + key + "_";
+}
+
 bool is_expired(const std::optional<std::string> &expire_str,
                 std::time_t *now_time) {
   if (!expire_str.has_value()) {
@@ -219,6 +234,36 @@ bool RedisWrapper::expire_zset_clean(
   return false;
 }
 
+bool RedisWrapper::expire_set_clean(
+    const std::string &key, std::shared_lock<std::shared_mutex> &rlock) {
+  std::string expire_key = get_explire_key(key);
+  auto expire_query = this->lsm->get(expire_key);
+  if (is_expired(expire_query, nullptr)) {
+    // set都过期了, 需要删除set
+    // 先升级锁
+    rlock.unlock();                                       // 解锁读锁
+    std::unique_lock<std::shared_mutex> wlock(redis_mtx); // 写锁
+    lsm->remove(key);
+    lsm->remove(expire_key);
+    auto preffix = get_set_key_preffix(key);
+    auto result_elem = this->lsm->lsm_iters_monotony_predicate(
+        [&preffix](const std::string &elem) {
+          return -elem.compare(0, preffix.size(), preffix);
+        });
+    if (result_elem.has_value()) {
+      auto [elem_begin, elem_end] = result_elem.value();
+      std::vector<std::string> remove_vec;
+      for (; elem_begin != elem_end; ++elem_begin) {
+        remove_vec.push_back(elem_begin->first);
+      }
+      lsm->remove_batch(remove_vec);
+    }
+    return true;
+    return true;
+  }
+  return false;
+}
+
 // ************************* Redis Command *************************
 // 基础操作
 std::string RedisWrapper::set(std::vector<std::string> &args) {
@@ -313,6 +358,27 @@ std::string RedisWrapper::zincrby(std::vector<std::string> &args) {
 
 std::string RedisWrapper::zrank(std::vector<std::string> &args) {
   return redis_zrank(args[1], args[2]);
+}
+
+// 无序集合操作
+std::string RedisWrapper::sadd(std::vector<std::string> &args) {
+  return redis_sadd(args);
+}
+
+std::string RedisWrapper::srem(std::vector<std::string> &args) {
+  return redis_srem(args);
+}
+
+std::string RedisWrapper::sismember(std::vector<std::string> &args) {
+  return redis_sismember(args[1], args[2]);
+}
+
+std::string RedisWrapper::scard(std::vector<std::string> &args) {
+  return redis_scard(args[1]);
+}
+
+std::string RedisWrapper::smembers(std::vector<std::string> &args) {
+  return redis_smembers(args[1]);
 }
 
 void RedisWrapper::clear() { this->lsm->clear(); }
@@ -1032,4 +1098,145 @@ std::string RedisWrapper::redis_zrank(const std::string &key,
   }
 
   return "$-1\r\n"; // 表示成员不存在
+}
+
+std::string RedisWrapper::redis_sadd(std::vector<std::string> &args) {
+
+  std::string key = args[1];
+  std::shared_lock<std::shared_mutex> rlock(redis_mtx); // 读锁
+  bool is_expired = expire_set_clean(key, rlock);
+
+  if (!is_expired) {
+    rlock.unlock();
+  }
+
+  std::vector<std::pair<std::string, std::string>> put_kvs;
+
+  std::unique_lock<std::shared_mutex> lock(redis_mtx); // 写锁
+
+  for (size_t i = 2; i < args.size(); ++i) {
+    std::string member = args[i];
+    std::string member_key = get_set_member_key(key, member);
+
+    if (!lsm->get(member_key).has_value()) {
+      put_kvs.emplace_back(member_key, get_set_member_value());
+    }
+  }
+
+  // 更新集合大小
+  auto key_query = lsm->get(key);
+  int set_size = put_kvs.size();
+  if (key_query.has_value()) {
+    auto prev_size = std::stoi(key_query.value());
+    set_size += prev_size;
+  }
+  put_kvs.emplace_back(key, std::to_string(set_size));
+
+  lsm->put_batch(put_kvs);
+
+  return ":" + std::to_string(put_kvs.size() - 1) + "\r\n";
+}
+
+std::string RedisWrapper::redis_srem(std::vector<std::string> &args) {
+  std::string key = args[1];
+  std::shared_lock<std::shared_mutex> rlock(redis_mtx); // 读锁
+  bool is_expired = expire_set_clean(key, rlock);
+
+  if (is_expired) {
+    return ":0\r\n";
+  }
+
+  rlock.unlock();
+  std::unique_lock<std::shared_mutex> lock(redis_mtx); // 写锁
+
+  std::vector<std::string> del_kvs;
+
+  for (size_t i = 2; i < args.size(); ++i) {
+    std::string member = args[i];
+    std::string member_key = get_set_member_key(key, member);
+
+    if (lsm->get(member_key).has_value()) {
+      del_kvs.emplace_back(member_key);
+    }
+  }
+
+  // 更新集合大小
+  auto key_query = lsm->get(key);
+  int set_size = -del_kvs.size();
+  if (key_query.has_value()) {
+    auto prev_size = std::stoi(key_query.value());
+    set_size += prev_size;
+  }
+  this->lsm->put(key, std::to_string(set_size));
+  this->lsm->remove_batch(del_kvs);
+
+  return ":" + std::to_string(del_kvs.size()) + "\r\n";
+}
+
+std::string RedisWrapper::redis_sismember(const std::string &key,
+                                          const std::string &member) {
+  std::shared_lock<std::shared_mutex> rlock(redis_mtx); // 读锁
+  bool is_expired = expire_set_clean(key, rlock);
+
+  if (is_expired) {
+    return ":0\r\n";
+  }
+
+  std::string member_key = get_set_member_key(key, member);
+  if (lsm->get(member_key).has_value()) {
+    return ":1\r\n";
+  } else {
+    return ":0\r\n";
+  }
+}
+
+std::string RedisWrapper::redis_scard(const std::string &key) {
+  std::shared_lock<std::shared_mutex> rlock(redis_mtx); // 读锁
+  bool is_expired = expire_set_clean(key, rlock);
+
+  if (is_expired) {
+    return ":0\r\n";
+  }
+
+  auto key_query = lsm->get(key);
+  if (key_query.has_value()) {
+    return ":" + key_query.value() + "\r\n";
+
+  } else {
+    return ":0\r\n";
+  }
+}
+
+std::string RedisWrapper::redis_smembers(const std::string &key) {
+  std::shared_lock<std::shared_mutex> rlock(redis_mtx); // 读锁
+  bool is_expired = expire_set_clean(key, rlock);
+
+  if (is_expired) {
+    return "*0\r\n"; // 空数组
+  }
+
+  std::string prefix = get_set_member_prefix(key);
+  auto result_elem = this->lsm->lsm_iters_monotony_predicate(
+      [&prefix](const std::string &elem) {
+        return -elem.compare(0, prefix.size(), prefix);
+      });
+
+  if (!result_elem.has_value()) {
+    return "*0\r\n"; // 空数组
+  }
+
+  auto [elem_begin, elem_end] = result_elem.value();
+  std::vector<std::string> members;
+  for (; elem_begin != elem_end; ++elem_begin) {
+    std::string member_key = elem_begin->first;
+    std::string member = member_key.substr(prefix.size());
+    members.emplace_back(member);
+  }
+
+  std::ostringstream oss;
+  oss << "*" << members.size() << "\r\n";
+  for (const auto &member : members) {
+    oss << "$" << member.size() << "\r\n" << member << "\r\n";
+  }
+  return oss.str();
 }

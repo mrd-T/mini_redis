@@ -28,6 +28,8 @@ private:
                          std::shared_lock<std::shared_mutex> &rlock);
   bool expire_zset_clean(const std::string &key,
                          std::shared_lock<std::shared_mutex> &rlock);
+  bool expire_set_clean(const std::string &key,
+                        std::shared_lock<std::shared_mutex> &rlock);
 
 public:
   RedisWrapper(const std::string &db_path);
@@ -63,6 +65,12 @@ public:
   std::string zscore(std::vector<std::string> &args);
   std::string zincrby(std::vector<std::string> &args);
   std::string zrank(std::vector<std::string> &args);
+  // 无序集合操作
+  std::string sadd(std::vector<std::string> &args);
+  std::string srem(std::vector<std::string> &args);
+  std::string sismember(std::vector<std::string> &args);
+  std::string scard(std::vector<std::string> &args);
+  std::string smembers(std::vector<std::string> &args);
 
 private:
   // ************************* Redis Command Handler *************************
@@ -98,4 +106,11 @@ private:
                             const std::string &increment,
                             const std::string &elem);
   std::string redis_zrank(const std::string &key, const std::string &elem);
+  // 无序集合操作
+  std::string redis_sadd(std::vector<std::string> &args);
+  std::string redis_srem(std::vector<std::string> &args);
+  std::string redis_sismember(const std::string &key,
+                              const std::string &member);
+  std::string redis_scard(const std::string &key);
+  std::string redis_smembers(const std::string &key);
 };

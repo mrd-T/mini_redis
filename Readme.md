@@ -109,7 +109,7 @@ Then you can use redis-cli to connect to the server:
 - [ ] Transaction
   - [ ] MVCC
   - [ ] Snapshot
-- [ ] Redis
+- [x] Redis
   - [x] Fundamental KV Operations
     - [x] set
     - [x] get
@@ -125,7 +125,6 @@ Then you can use redis-cli to connect to the server:
     - [x] lpop/rpop
     - [x] llen
     - [x] lrange
-  - [ ] Set
   - [x] ZSet
     - [x] ZADD
     - [x] ZREM
@@ -134,9 +133,17 @@ Then you can use redis-cli to connect to the server:
     - [x] ZSCORE
     - [x] ZRANK
     - [x] ZINCRBY
+  - [x] Set
+    - [x] SADD
+    - [x] SREM
+    - [x] SISMEMBER
+    - [x] SMEMBERS
+    - [x] SCARD
   - [x] IO Operations
     - [x] FLUSHALL
     - [x] SAVE
+
+> Only commonly used redis commands are supported. The other implementations can refer to `src/redis_wrapper/redis_wrapper.cpp`. If you need more commands, please submit a pull request. 
 
 ## License
 

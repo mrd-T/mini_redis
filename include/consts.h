@@ -20,3 +20,4 @@
 #define REDIS_LIST_SEPARATOR '#'  // 链表元素的分隔符
 #define REDIS_SORTED_SET_PREFIX "REDIS_SORTED_SET_" // 有序集合的前缀
 #define REDIS_SORTED_SET_SCORE_LEN 32 // 有序集合分数的长度
+#define REDIS_SET_PREFIX "REDIS_SET_" // 无序集合的前缀

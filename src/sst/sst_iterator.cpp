@@ -95,6 +95,12 @@ void SstIterator::seek(const std::string &key) {
       return;
     }
     m_block_it = std::make_shared<BlockIterator>(block, key);
+    if (m_block_it->is_end()) {
+      // block 中找不到
+      m_block_idx = m_sst->num_blocks();
+      m_block_it = nullptr;
+      return;
+    }
   } catch (const std::exception &) {
     m_block_it = nullptr;
     return;

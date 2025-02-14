@@ -138,13 +138,13 @@ HeapIterator MemTable::begin() {
     item_vec.emplace_back(iter.get_key(), iter.get_value(), 0);
   }
 
-  int level = 1;
+  int table_idx = 1;
   for (auto ft = frozen_tables.begin(); ft != frozen_tables.end(); ft++) {
     auto table = *ft;
     for (auto iter = table->begin(); iter != table->end(); iter++) {
-      item_vec.emplace_back(iter.get_key(), iter.get_value(), level);
+      item_vec.emplace_back(iter.get_key(), iter.get_value(), table_idx);
     }
-    level++;
+    table_idx++;
   }
 
   return HeapIterator(item_vec);
@@ -164,14 +164,14 @@ HeapIterator MemTable::iters_preffix(const std::string &preffix) {
     item_vec.emplace_back(iter.get_key(), iter.get_value(), 0);
   }
 
-  int level = 1;
+  int table_idx = 1;
   for (auto ft = frozen_tables.begin(); ft != frozen_tables.end(); ft++) {
     auto table = *ft;
     for (auto iter = table->begin_preffix(preffix);
          iter != table->end_preffix(preffix); iter++) {
-      item_vec.emplace_back(iter.get_key(), iter.get_value(), level);
+      item_vec.emplace_back(iter.get_key(), iter.get_value(), table_idx);
     }
-    level++;
+    table_idx++;
   }
 
   return HeapIterator(item_vec);
@@ -191,16 +191,17 @@ MemTable::iters_monotony_predicate(
     }
   }
 
-  int level = 1;
+  int table_idx = 1;
   for (auto ft = frozen_tables.begin(); ft != frozen_tables.end(); ft++) {
     auto table = *ft;
     auto result = table->iters_monotony_predicate(predicate);
     if (result.has_value()) {
       auto [begin, end] = result.value();
       for (auto iter = begin; iter != end; ++iter) {
-        item_vec.emplace_back(iter.get_key(), iter.get_value(), level);
+        item_vec.emplace_back(iter.get_key(), iter.get_value(), table_idx);
       }
     }
+    table_idx++;
   }
 
   if (item_vec.empty()) {

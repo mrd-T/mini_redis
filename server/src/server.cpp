@@ -29,16 +29,20 @@ public:
 
   // private:
   void onConnection(const TcpConnectionPtr &conn) {
+#ifdef DEBUG
     if (conn->connected()) {
       LOG_INFO << "Connection from " << conn->peerAddress().toIpPort();
     } else {
       LOG_INFO << "Connection closed from " << conn->peerAddress().toIpPort();
     }
+#endif
   }
 
   void onMessage(const TcpConnectionPtr &conn, Buffer *buf, Timestamp time) {
     std::string msg(buf->retrieveAllAsString());
+#ifdef DEBUG
     LOG_INFO << "Received message at " << time.toString() << ":\n" << msg;
+#endif
 
     // 解析并处理请求
     std::string response = handleRequest(msg);
@@ -60,16 +64,20 @@ public:
     }
     pos = request.find('\n', pos) + 1; // 跳过 '\r\n'
 
+#ifdef DEBUG
     LOG_INFO << "request: " << request << '\n';
     LOG_INFO << "Number of elements: " << numElements << '\n';
-
+#endif
     std::vector<std::string> args;
 
     for (int i = 0; i < numElements; ++i) {
       if (pos >= request.size() || request[pos] != '$') {
+#ifdef DEBUG
         LOG_INFO << "pos = " << pos << ", i = " << i
                  << ", last args = " << args.back() << '\n';
         LOG_INFO << "-ERR Protocol error: expected '$'\r\n";
+#endif
+
         return "-ERR Protocol error: expected '$'\r\n";
       }
 
@@ -80,13 +88,18 @@ public:
         next_n_pos = request.find('\n', pos);
         len = std::stoi(request.substr(pos + 1)); // 跳过 '$'
       } catch (const std::exception &) {
+#ifdef DEBUG
         LOG_INFO << "-ERR Protocol error: invalid bulk string length\r\n";
+#endif
         return "-ERR Protocol error: invalid bulk string length\r\n";
       }
       pos = next_n_pos + 1; // 跳过 '$' 值 \r\n
       if (pos + len > request.size()) {
+#ifdef DEBUG
         LOG_INFO << "-ERR Protocol error: bulk string length exceeds request "
                     "size\r\n";
+#endif
+
         return "-ERR Protocol error: bulk string length exceeds request "
                "size\r\n";
       }
@@ -94,12 +107,13 @@ public:
       next_n_pos = request.find('\n', pos);
       pos = next_n_pos + 1; // 跳过数据和/r/n
     }
-
+#ifdef DEBUG
     LOG_INFO << "Request: ";
     for (const auto &arg : args) {
       LOG_INFO << arg << " ";
     }
     LOG_INFO << '\n';
+#endif
 
     // 处理命令
     switch (string2Ops(args[0])) {

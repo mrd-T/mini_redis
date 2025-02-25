@@ -21,6 +21,12 @@ class SSTBuilder;
 class MemTable {
   friend class HeapIterator;
 
+private:
+  void put_(const std::string &key, const std::string &value);
+  std::optional<std::string> get_(const std::string &key);
+  void remove_(const std::string &key);
+  void frozen_cur_table_(); // _ 表示不需要锁的版本
+
 public:
   MemTable();
   ~MemTable();

@@ -20,21 +20,28 @@ MemTable::MemTable() : frozen_bytes(0) {
 }
 MemTable::~MemTable() = default;
 
+void MemTable::put_(const std::string &key, const std::string &value) {
+  current_table->put(key, value);
+
+  if (current_table->get_size() > LSM_PER_MEM_SIZE_LIMIT) {
+    frozen_cur_table_();
+  }
+}
+
 void MemTable::put(const std::string &key, const std::string &value) {
   std::unique_lock<std::shared_mutex> lock(rx_mtx);
-  current_table->put(key, value);
+  put_(key, value);
 }
 
 void MemTable::put_batch(
     const std::vector<std::pair<std::string, std::string>> &kvs) {
   std::unique_lock<std::shared_mutex> lock(rx_mtx);
   for (auto &[k, v] : kvs) {
-    current_table->put(k, v);
+    put_(k, v);
   }
 }
 
-std::optional<std::string> MemTable::get(const std::string &key) {
-  std::shared_lock<std::shared_mutex> slock(rx_mtx);
+std::optional<std::string> MemTable::get_(const std::string &key) {
   // 首先检查当前活跃的memtable
   auto result = current_table->get(key);
   if (result.has_value()) {
@@ -55,17 +62,29 @@ std::optional<std::string> MemTable::get(const std::string &key) {
   return std::nullopt;
 }
 
-void MemTable::remove(const std::string &key) {
-  std::unique_lock<std::shared_mutex> lock(rx_mtx);
+std::optional<std::string> MemTable::get(const std::string &key) {
+  std::shared_lock<std::shared_mutex> slock(rx_mtx);
+  return get_(key);
+}
+
+void MemTable::remove_(const std::string &key) {
   // 删除的方式是写入空值
   current_table->put(key, "");
+  if (current_table->get_size() > LSM_PER_MEM_SIZE_LIMIT) {
+    frozen_cur_table_();
+  }
+}
+
+void MemTable::remove(const std::string &key) {
+  std::unique_lock<std::shared_mutex> lock(rx_mtx);
+  remove_(key);
 }
 
 void MemTable::remove_batch(const std::vector<std::string> &keys) {
   std::unique_lock<std::shared_mutex> lock(rx_mtx);
   // 删除的方式是写入空值
   for (auto &key : keys) {
-    current_table->put(key, "");
+    remove_(key);
   }
 }
 
@@ -107,11 +126,15 @@ MemTable::flush_last(SSTBuilder &builder, std::string &sst_path, size_t sst_id,
   return sst;
 }
 
-void MemTable::frozen_cur_table() {
-  std::unique_lock<std::shared_mutex> lock(rx_mtx);
+void MemTable::frozen_cur_table_() {
   frozen_bytes += current_table->get_size();
   frozen_tables.push_front(std::move(current_table));
   current_table = std::make_shared<SkipList>();
+}
+
+void MemTable::frozen_cur_table() {
+  std::unique_lock<std::shared_mutex> lock(rx_mtx);
+  frozen_cur_table_();
 }
 
 size_t MemTable::get_cur_size() {

@@ -3,6 +3,7 @@
 #include "../block/block.h"
 #include "../block/block_cache.h"
 #include "../block/blockmeta.h"
+#include "../utils/bloom_filter.h"
 #include "../utils/files.h"
 #include <cstddef>
 #include <cstdint>
@@ -46,10 +47,12 @@ class SST : public std::enable_shared_from_this<SST> {
 private:
   FileObj file;
   std::vector<BlockMeta> meta_entries;
+  uint32_t bloom_offset;
   uint32_t meta_block_offset;
   size_t sst_id;
   std::string first_key;
   std::string last_key;
+  std::shared_ptr<BloomFilter> bloom_filter;
   std::shared_ptr<BlockCache> block_cache;
 
 public:
@@ -100,12 +103,11 @@ private:
   std::vector<BlockMeta> meta_entries;
   std::vector<uint8_t> data;
   size_t block_size;
-  std::vector<uint32_t> key_hashes;
+  std::shared_ptr<BloomFilter> bloom_filter;
 
 public:
   // 创建一个sst构建器, 指定目标block的大小
-  SSTBuilder(size_t block_size);
-  // 添加一个key-value对
+  SSTBuilder(size_t block_size, bool has_bloom); // 添加一个key-value对
   void add(const std::string &key, const std::string &value);
   // 估计sst的大小
   size_t estimated_size() const;

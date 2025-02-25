@@ -78,6 +78,9 @@ TEST_F(LSMTest, Persistence) {
       EXPECT_FALSE(lsm.get(key).has_value());
     }
   }
+
+  // Query a not exist key
+  EXPECT_FALSE(lsm.get("nonexistent").has_value());
 }
 
 // Test large scale operations

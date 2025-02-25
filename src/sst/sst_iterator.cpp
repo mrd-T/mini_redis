@@ -87,6 +87,7 @@ void SstIterator::seek(const std::string &key) {
       // 置为 end
       // TODO: 这个边界情况需要添加单元测试
       m_block_it = nullptr;
+      m_block_idx = m_sst->num_blocks();
       return;
     }
     auto block = m_sst->read_block(m_block_idx);

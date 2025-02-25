@@ -1,10 +1,12 @@
 #include "../../include/sst/sst.h"
+#include "../../include/consts.h"
 #include "../../include/sst/sst_iterator.h"
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <functional>
+#include <memory>
 #include <stdexcept>
 
 // **************************************************
@@ -19,22 +21,38 @@ std::shared_ptr<SST> SST::open(size_t sst_id, FileObj file,
   sst->block_cache = block_cache;
 
   // 读取文件末尾的元数据块
-  // 1. 读取元数据块的偏移量（最后8字节）
+  // 1. 读取元数据块的偏移量, 最后8字节: 2个 uint32_t,
+  // 分别是 meta 和 bloom 的 offset
   size_t file_size = sst->file.size();
   if (file_size < sizeof(size_t)) {
     throw std::runtime_error("Invalid SST file: too small");
   }
 
-  auto offset_bytes =
+  auto bloom_offset_bytes =
       sst->file.read_to_slice(file_size - sizeof(uint32_t), sizeof(uint32_t));
-  memcpy(&sst->meta_block_offset, offset_bytes.data(), sizeof(uint32_t));
+  memcpy(&sst->bloom_offset, bloom_offset_bytes.data(), sizeof(uint32_t));
 
-  // 2. 读取并解码元数据块
-  uint32_t meta_size = file_size - sst->meta_block_offset - sizeof(uint32_t);
+  auto meta_offset_bytes = sst->file.read_to_slice(
+      file_size - sizeof(uint32_t) * 2, sizeof(uint32_t));
+  memcpy(&sst->meta_block_offset, meta_offset_bytes.data(), sizeof(uint32_t));
+
+  // 2. 读取 bloom filter
+  if (sst->bloom_offset + 2 * sizeof(uint32_t) < file_size) {
+    // 布隆过滤器偏移量 + 2*uint32_t 的大小小于文件大小
+    // 表示存在布隆过滤器
+    uint32_t bloom_size = file_size - sst->bloom_offset - sizeof(uint32_t) * 2;
+    auto bloom_bytes = sst->file.read_to_slice(sst->bloom_offset, bloom_size);
+
+    auto bloom = BloomFilter::decode(bloom_bytes);
+    sst->bloom_filter = std::make_shared<BloomFilter>(std::move(bloom));
+  }
+
+  // 3. 读取并解码元数据块
+  uint32_t meta_size = sst->bloom_offset - sst->meta_block_offset;
   auto meta_bytes = sst->file.read_to_slice(sst->meta_block_offset, meta_size);
   sst->meta_entries = BlockMeta::decode_meta_from_slice(meta_bytes);
 
-  // 3. 设置首尾key
+  // 4. 设置首尾key
   if (!sst->meta_entries.empty()) {
     sst->first_key = sst->meta_entries.front().first_key;
     sst->last_key = sst->meta_entries.back().last_key;
@@ -96,6 +114,11 @@ std::shared_ptr<Block> SST::read_block(size_t block_idx) {
 }
 
 size_t SST::find_block_idx(const std::string &key) {
+  // 先在布隆过滤器判断key是否存在
+  if (bloom_filter != nullptr && !bloom_filter->possibly_contains(key)) {
+    return -1;
+  }
+
   // 二分查找
   size_t left = 0;
   size_t right = meta_entries.size();
@@ -121,7 +144,12 @@ size_t SST::find_block_idx(const std::string &key) {
 }
 
 SstIterator SST::get(const std::string &key) {
-  if (key < first_key || key > last_key) {
+  // if (key < first_key || key > last_key) {
+  //   return this->end();
+  // }
+
+  // 在布隆过滤器判断key是否存在
+  if (bloom_filter != nullptr && !bloom_filter->possibly_contains(key)) {
     return this->end();
   }
 
@@ -151,9 +179,12 @@ SstIterator SST::end() {
 // SSTBuilder
 // **************************************************
 
-SSTBuilder::SSTBuilder(size_t block_size) : block(block_size) {
+SSTBuilder::SSTBuilder(size_t block_size, bool has_bloom) : block(block_size) {
   // 初始化第一个block
-  key_hashes.clear();
+  if (has_bloom) {
+    bloom_filter = std::make_shared<BloomFilter>(
+        BLOOM_FILTER_EXPECTED_SIZE, BLOOM_FILTER_EXPECTED_ERROR_RATE);
+  }
   meta_entries.clear();
   data.clear();
   first_key.clear();
@@ -166,9 +197,10 @@ void SSTBuilder::add(const std::string &key, const std::string &value) {
     first_key = key;
   }
 
-  // 计算当前key的hash并存储
-  uint32_t hash = static_cast<uint32_t>(std::hash<std::string>{}(key));
-  key_hashes.push_back(hash);
+  // 在 布隆过滤器 中添加key
+  if (bloom_filter != nullptr) {
+    bloom_filter->add(key);
+  }
 
   if (block.add_entry(key, value)) {
     // block 满足容量限制, 插入成功
@@ -232,10 +264,23 @@ SSTBuilder::build(size_t sst_id, const std::string &path,
   // 2. 添加元数据块
   file_content.insert(file_content.end(), meta_block.begin(), meta_block.end());
 
-  // 3. 添加元数据块偏移量
-  file_content.resize(file_content.size() + sizeof(uint32_t));
-  memcpy(file_content.data() + file_content.size() - sizeof(uint32_t),
+  // 3. 编码布隆过滤器
+  uint32_t bloom_offset = file_content.size();
+  if (bloom_filter != nullptr) {
+    auto bf_data = bloom_filter->encode();
+    file_content.insert(file_content.end(), bf_data.begin(), bf_data.end());
+  }
+
+  file_content.resize(file_content.size() + sizeof(uint32_t) * 2);
+  // sizeof(uint32_t) * 2 表示需要分别记录布隆过滤器和元数据块的偏移量
+
+  // 4. 添加元数据块偏移量
+  memcpy(file_content.data() + file_content.size() - sizeof(uint32_t) * 2,
          &meta_offset, sizeof(uint32_t));
+
+  // 5. 添加布隆过滤器偏移量
+  memcpy(file_content.data() + file_content.size() - sizeof(uint32_t),
+         &bloom_offset, sizeof(uint32_t));
 
   // 创建文件
   FileObj file = FileObj::create_and_write(path, file_content);
@@ -248,6 +293,7 @@ SSTBuilder::build(size_t sst_id, const std::string &path,
   res->first_key = meta_entries.front().first_key;
   res->last_key = meta_entries.back().last_key;
   res->meta_block_offset = meta_offset;
+  res->bloom_offset = bloom_offset;
   res->meta_entries = std::move(meta_entries);
   res->block_cache = block_cache;
 

@@ -147,7 +147,7 @@ void LSMEngine::flush() {
   // new_sst_id, 但后续有WAL, 故先忽略这个问题, 且这个概率很小
 
   // 2. 准备 SSTBuilder
-  SSTBuilder builder(LSM_BLOCK_SIZE); // 4KB block size
+  SSTBuilder builder(LSM_BLOCK_SIZE, true); // 4KB block size
 
   // 3. 将 memtable 中最旧的表写入 SST
   auto sst_path = get_sst_path(new_sst_id);

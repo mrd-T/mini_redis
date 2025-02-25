@@ -2,7 +2,7 @@
 
 #define LSM_TOL_MEM_SIZE_LIMIT (64 * 1024 * 1024) // 内存表的大小限制, 64MB
 #define LSM_PER_MEM_SIZE_LIMIT (4 * 1024 * 1024) // 内存表的大小限制, 4MB
-#define LSM_BLOCK_SIZE (16 * 1024)               // BLOCK的大小, 16KB
+#define LSM_BLOCK_SIZE (32 * 1024)               // BLOCK的大小, 32KB
 
 // // 测试时使用的小批量数据, 测试时可以注释上面的定义
 // #define LSM_TOL_MEM_SIZE_LIMIT (64 * 1024) // 内存表的大小限制, 64KB
@@ -21,3 +21,7 @@
 #define REDIS_SORTED_SET_PREFIX "REDIS_SORTED_SET_" // 有序集合的前缀
 #define REDIS_SORTED_SET_SCORE_LEN 32 // 有序集合分数的长度
 #define REDIS_SET_PREFIX "REDIS_SET_" // 无序集合的前缀
+
+// Bloom Filter
+#define BLOOM_FILTER_EXPECTED_SIZE 65536
+#define BLOOM_FILTER_EXPECTED_ERROR_RATE 0.1

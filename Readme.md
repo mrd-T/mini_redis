@@ -87,6 +87,21 @@ Then you can use redis-cli to connect to the server:
 
 ![redis-example](./doc/redis-example.png)
 
+## Redis Benchmark
+We use the official tool `redis-benchmark` to test the performance of the wrapper redis server. The QPS of commonly used commands are relatively high, considering its IO between memroy and disk.
+> The testing environment is: Win11 WSL Ubuntu 22.04, 32GB 6000 RAM, Intel 12600K. 
+```bash
+(base) ➜  ~ redis-benchmark -h 127.0.0.1 -p 6379 -c 100 -n 100000 -q -t SET,GET,INCR,SADD,HSET,ZADD
+WARNING: Could not fetch server CONFIG
+SET: 60277.27 requests per second, p50=1.423 msec
+GET: 60204.70 requests per second, p50=1.431 msec
+INCR: 124843.95 requests per second, p50=0.551 msec
+SADD: 59880.24 requests per second, p50=1.447 msec
+HSET: 60827.25 requests per second, p50=1.431 msec
+ZADD: 33422.46 requests per second, p50=2.783 msec
+```
+> Besides, the QPS of `lpush/rpush` is so slow that its design needs to be optimized.
+
 **The project is under development, and the current version is not stable.**
 
 # TODO

@@ -13,7 +13,9 @@ std::string toLower(const std::string &str) {
 OPS string2Ops(const std::string &opStr) {
   std::string lowerOpStr = toLower(opStr);
 
-  if (lowerOpStr == "flushall") {
+  if (lowerOpStr == "ping") {
+    return OPS::PING;
+  } else if (lowerOpStr == "flushall") {
     return OPS::FLUSHALL;
   } else if (lowerOpStr == "save") {
     return OPS::SAVE;
@@ -97,7 +99,7 @@ std::string set_handler(std::vector<std::string> &args, RedisWrapper &engine) {
     return "-ERR wrong number of arguments for 'SET' command\r\n";
   }
 
-#ifdef DEBUG
+#ifdef LSM_DEBUG
   LOG_INFO << "command is: " << args[0] << " " << args[1] << " " << args[2]
            << '\n';
 #endif
@@ -108,7 +110,7 @@ std::string set_handler(std::vector<std::string> &args, RedisWrapper &engine) {
 std::string get_handler(std::vector<std::string> &args, RedisWrapper &engine) {
   if (args.size() != 2)
     return "-ERR wrong number of arguments for 'GET' command\r\n";
-#ifdef DEBUG
+#ifdef LSM_DEBUG
   LOG_INFO << "command is: " << args[0] << " " << args[1] << '\n';
 #endif
 
@@ -118,7 +120,7 @@ std::string get_handler(std::vector<std::string> &args, RedisWrapper &engine) {
 std::string del_handler(std::vector<std::string> &args, RedisWrapper &engine) {
   if (args.size() < 2)
     return "-ERR wrong number of arguments for 'DEL' command\r\n";
-#ifdef DEBUG
+#ifdef LSM_DEBUG
   LOG_INFO << "command is: " << args[0] << " " << args[1] << '\n';
 #endif
 
@@ -128,7 +130,7 @@ std::string del_handler(std::vector<std::string> &args, RedisWrapper &engine) {
 std::string incr_handler(std::vector<std::string> &args, RedisWrapper &engine) {
   if (args.size() != 2)
     return "-ERR wrong number of arguments for 'INCR' command\r\n";
-#ifdef DEBUG
+#ifdef LSM_DEBUG
   LOG_INFO << "command is: " << args[0] << " " << args[1] << '\n';
 #endif
 
@@ -140,7 +142,7 @@ std::string incr_handler(std::vector<std::string> &args, RedisWrapper &engine) {
 std::string decr_handler(std::vector<std::string> &args, RedisWrapper &engine) {
   if (args.size() != 2)
     return "-ERR wrong number of arguments for 'DECR' command\r\n";
-#ifdef DEBUG
+#ifdef LSM_DEBUG
   LOG_INFO << "command is: " << args[0] << " " << args[1] << '\n';
 #endif
 
@@ -153,7 +155,7 @@ std::string expire_handler(std::vector<std::string> &args,
                            RedisWrapper &engine) {
   if (args.size() != 3)
     return "-ERR wrong number of arguments for 'EXPIRE' command\r\n";
-#ifdef DEBUG
+#ifdef LSM_DEBUG
   LOG_INFO << "command is: " << args[0] << " " << args[1] << " " << args[2]
            << '\n';
 #endif
@@ -164,7 +166,7 @@ std::string expire_handler(std::vector<std::string> &args,
 std::string ttl_handler(std::vector<std::string> &args, RedisWrapper &engine) {
   if (args.size() != 2)
     return "-ERR wrong number of arguments for 'TTL' command\r\n";
-#ifdef DEBUG
+#ifdef LSM_DEBUG
   LOG_INFO << "command is: " << args[0] << " " << args[1] << '\n';
 #endif
 
@@ -174,7 +176,7 @@ std::string ttl_handler(std::vector<std::string> &args, RedisWrapper &engine) {
 std::string hset_handler(std::vector<std::string> &args, RedisWrapper &engine) {
   if (args.size() != 4)
     return "-ERR wrong number of arguments for 'HSET' command\r\n";
-#ifdef DEBUG
+#ifdef LSM_DEBUG
   LOG_INFO << "command is: " << args[0] << " " << args[1] << " " << args[2]
            << " " << args[3] << '\n';
 #endif
@@ -185,7 +187,7 @@ std::string hset_handler(std::vector<std::string> &args, RedisWrapper &engine) {
 std::string hget_handler(std::vector<std::string> &args, RedisWrapper &engine) {
   if (args.size() != 3)
     return "-ERR wrong number of arguments for 'HGET' command\r\n";
-#ifdef DEBUG
+#ifdef LSM_DEBUG
   LOG_INFO << "command is: " << args[0] << " " << args[1] << " " << args[2]
            << '\n';
 #endif
@@ -196,7 +198,7 @@ std::string hget_handler(std::vector<std::string> &args, RedisWrapper &engine) {
 std::string hdel_handler(std::vector<std::string> &args, RedisWrapper &engine) {
   if (args.size() != 3)
     return "-ERR wrong number of arguments for 'HDEL' command\r\n";
-#ifdef DEBUG
+#ifdef LSM_DEBUG
   LOG_INFO << "command is: " << args[0] << " " << args[1] << " " << args[2]
            << '\n';
 #endif
@@ -208,7 +210,7 @@ std::string hkeys_handler(std::vector<std::string> &args,
                           RedisWrapper &engine) {
   if (args.size() != 2)
     return "-ERR wrong number of arguments for 'HKEYS' command\r\n";
-#ifdef DEBUG
+#ifdef LSM_DEBUG
   LOG_INFO << "command is: " << args[0] << " " << args[1] << '\n';
 #endif
 
@@ -220,7 +222,7 @@ std::string lpush_handler(std::vector<std::string> &args,
                           RedisWrapper &engine) {
   if (args.size() != 3)
     return "-ERR wrong number of arguments for 'LPUSH' command\r\n";
-#ifdef DEBUG
+#ifdef LSM_DEBUG
   LOG_INFO << "command is: " << args[0] << " " << args[1] << " " << args[2]
            << '\n';
 #endif
@@ -231,7 +233,7 @@ std::string rpush_handler(std::vector<std::string> &args,
                           RedisWrapper &engine) {
   if (args.size() != 3)
     return "-ERR wrong number of arguments for 'RPUSH' command\r\n";
-#ifdef DEBUG
+#ifdef LSM_DEBUG
   LOG_INFO << "command is: " << args[0] << " " << args[1] << " " << args[2]
            << '\n';
 #endif
@@ -241,7 +243,7 @@ std::string rpush_handler(std::vector<std::string> &args,
 std::string lpop_handler(std::vector<std::string> &args, RedisWrapper &engine) {
   if (args.size() != 2)
     return "-ERR wrong number of arguments for 'LPOP' command\r\n";
-#ifdef DEBUG
+#ifdef LSM_DEBUG
   LOG_INFO << "command is: " << args[0] << " " << args[1] << '\n';
 #endif
   return engine.lpop(args);
@@ -250,7 +252,7 @@ std::string lpop_handler(std::vector<std::string> &args, RedisWrapper &engine) {
 std::string rpop_handler(std::vector<std::string> &args, RedisWrapper &engine) {
   if (args.size() != 2)
     return "-ERR wrong number of arguments for 'RPOP' command\r\n";
-#ifdef DEBUG
+#ifdef LSM_DEBUG
   LOG_INFO << "command is: " << args[0] << " " << args[1] << '\n';
 #endif
   return engine.rpop(args);
@@ -259,7 +261,7 @@ std::string rpop_handler(std::vector<std::string> &args, RedisWrapper &engine) {
 std::string llen_handler(std::vector<std::string> &args, RedisWrapper &engine) {
   if (args.size() != 3)
     return "-ERR wrong number of arguments for 'LLEN' command\r\n";
-#ifdef DEBUG
+#ifdef LSM_DEBUG
   LOG_INFO << "command is: " << args[0] << " " << args[1] << " " << args[2]
            << '\n';
 #endif
@@ -270,7 +272,7 @@ std::string lrange_handler(std::vector<std::string> &args,
                            RedisWrapper &engine) {
   if (args.size() != 4)
     return "-ERR wrong number of arguments for 'LRANGE' command\r\n";
-#ifdef DEBUG
+#ifdef LSM_DEBUG
   LOG_INFO << "command is: " << args[0] << " " << args[1] << " " << args[2]
            << " " << args[3] << '\n';
 #endif

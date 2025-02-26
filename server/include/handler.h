@@ -6,6 +6,8 @@
 #include <vector>
 
 enum class OPS {
+  // 测试操作
+  PING,
   // IO操作
   FLUSHALL,
   SAVE,

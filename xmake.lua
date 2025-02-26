@@ -9,7 +9,7 @@ add_requires("gtest") -- 添加gtest依赖
 add_requires("muduo")
 
 if is_mode("debug") then
-    add_defines("DEBUG")
+    add_defines("LSM_DEBUG")
 end
 
 

@@ -52,7 +52,7 @@ TEST_F(RedisCommandsTest, Expire) {
   RedisWrapper lsm(test_dir);
 
   std::vector<std::string> set_args = {"SET", "mykey", "myvalue"};
-  std::vector<std::string> expire_args = {"EXPIRE", "mykey", "2"};
+  std::vector<std::string> expire_args = {"EXPIRE", "mykey", "1"};
   std::vector<std::string> get_args = {"GET", "mykey"};
 
   EXPECT_EQ(lsm.set(set_args), "+OK\r\n");
@@ -66,9 +66,8 @@ TEST_F(RedisCommandsTest, Expire) {
   // 马上 GET key
   EXPECT_EQ(lsm.get(get_args), "$7\r\nmyvalue\r\n");
 
-  // 等待 3 秒，确保键过期
-  std::this_thread::sleep_for(std::chrono::seconds(3));
-
+  // 等待 2 秒，确保键过期
+  std::this_thread::sleep_for(std::chrono::seconds(2));
   EXPECT_EQ(lsm.get(get_args), "$-1\r\n");
 }
 
@@ -117,8 +116,7 @@ TEST_F(RedisCommandsTest, HDel) {
   std::vector<std::string> hget_args1 = {"HGET", key, field1};
   EXPECT_EQ(lsm.hget(hget_args1), "$-1\r\n"); // Field1 should be deleted
   std::vector<std::string> hget_args2 = {"HGET", key, field2};
-  EXPECT_EQ(lsm.hget(hget_args2), "$" + std::to_string(value2.size()) +
-  "\r\n" +
+  EXPECT_EQ(lsm.hget(hget_args2), "$" + std::to_string(value2.size()) + "\r\n" +
                                       value2 +
                                       "\r\n"); // Field2 should still exist
 }
@@ -162,7 +160,8 @@ TEST_F(RedisCommandsTest, HGetWithTTL) {
   EXPECT_EQ(lsm.expire(args), ":1\r\n");
 
   // Wait for TTL to expire
-  std::this_thread::sleep_for(std::chrono::seconds(2));
+  std::this_thread::sleep_for(std::chrono::seconds(2) +
+                              std::chrono::milliseconds(100)); // 1.1 s
 
   // HGET after TTL expired
   std::vector<std::string> hget_args = {"HGET", key, field};
@@ -186,7 +185,8 @@ TEST_F(RedisCommandsTest, HExpire) {
   EXPECT_EQ(lsm.expire(args), ":1\r\n");
 
   // Wait for TTL to expire
-  std::this_thread::sleep_for(std::chrono::seconds(2));
+  std::this_thread::sleep_for(std::chrono::seconds(1) +
+                              std::chrono::milliseconds(100)); // 1.1 s
 
   // HGET after TTL expired
   std::vector<std::string> hset_args2 = {"HSET", key, field, value2};

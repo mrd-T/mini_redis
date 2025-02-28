@@ -111,4 +111,6 @@ public:
 
   std::optional<std::pair<SkipListIterator, SkipListIterator>>
   iters_monotony_predicate(std::function<int(const std::string &)> predicate);
+
+  void print_skiplist();
 };

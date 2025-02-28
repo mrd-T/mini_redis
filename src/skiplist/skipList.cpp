@@ -1,4 +1,5 @@
 #include "../../include/skiplist/skiplist.h"
+#include <iostream>
 #include <stdexcept>
 
 // ************************ SkipListIterator ************************
@@ -83,7 +84,7 @@ void SkipList::put(const std::string &key, const std::string &value) {
   }
 
   // 如果key不存在，创建新节点
-  int new_level = random_level();
+  int new_level = std::max(random_level(), current_level);
   if (new_level > current_level) {
     for (int i = current_level; i < new_level; ++i) {
       update[i] = head;
@@ -378,4 +379,20 @@ SkipList::iters_monotony_predicate(
 
   return std::make_optional<std::pair<SkipListIterator, SkipListIterator>>(
       begin_iter, end_iter);
+}
+
+void SkipList::print_skiplist() {
+  for (int level = 0; level < current_level; level++) {
+    std::cout << "Level " << level << ": ";
+    auto current = head->forward[level];
+    while (current) {
+      std::cout << current->key;
+      current = current->forward[level];
+      if (current) {
+        std::cout << " -> ";
+      }
+    }
+    std::cout << std::endl;
+  }
+  std::cout << std::endl;
 }

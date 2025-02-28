@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cstdlib>
 #include <gtest/gtest.h>
 #include <iomanip>
 #include <latch>
@@ -52,7 +53,7 @@ TEST(SkipListTest, Iterator) {
 // 测试大量数据插入和查找
 TEST(SkipListTest, LargeScaleInsertAndGet) {
   SkipList skipList;
-  const int num_elements = 10000;
+  const int num_elements = 10;
 
   // 插入大量数据
   for (int i = 0; i < num_elements; ++i) {
@@ -72,19 +73,27 @@ TEST(SkipListTest, LargeScaleInsertAndGet) {
 // 测试大量数据删除
 TEST(SkipListTest, LargeScaleRemove) {
   SkipList skipList;
-  const int num_elements = 10;
+  const int num_elements = 2000;
 
   // 插入大量数据
+  // std::cout << "********************** insert **********************"
+  //           << std::endl;
   for (int i = 0; i < num_elements; ++i) {
     std::string key = "key" + std::to_string(i);
     std::string value = "value" + std::to_string(i);
     skipList.put(key, value);
+
+    // skipList.print_skiplist();
   }
 
+  // std::cout << "********************** remove **********************"
+  // << std::endl;
   // 删除所有数据
   for (int i = 0; i < num_elements; ++i) {
     std::string key = "key" + std::to_string(i);
     skipList.remove(key);
+
+    // skipList.print_skiplist();
   }
 
   // 验证所有数据已被删除

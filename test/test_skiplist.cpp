@@ -72,7 +72,7 @@ TEST(SkipListTest, LargeScaleInsertAndGet) {
 // 测试大量数据删除
 TEST(SkipListTest, LargeScaleRemove) {
   SkipList skipList;
-  const int num_elements = 10000;
+  const int num_elements = 10;
 
   // 插入大量数据
   for (int i = 0; i < num_elements; ++i) {

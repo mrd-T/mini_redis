@@ -88,25 +88,43 @@ void SkipList::put(const std::string &key, const std::string &value) {
     for (int i = current_level; i < new_level; ++i) {
       update[i] = head;
     }
-    current_level = new_level;
   }
+
+  // 生成一个随机数，用于决定是否在每一层更新节点
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::uniform_int_distribution<> dis(
+      0, (1 << max_level) - 1); // 生成一个 max_level 位的随机数
+  int random_bits = dis(gen);
 
   auto new_node = std::make_shared<SkipListNode>(key, value, new_level);
   size_bytes += key.size() + value.size();
 
   // 更新各层的指针
   for (int i = 0; i < new_level; ++i) {
-    new_node->forward[i] = update[i]->forward[i];
-    update[i]->forward[i] = new_node;
+    bool need_update = false;
+    if (i == 0 || (new_level > current_level) || (random_bits & (1 << i))) {
+      // 按照如下顺序判断是否进行更新
+      // 1. 第0层总是更新
+      // 2. 如果需要创建新的层级, 这个节点需要再之前所有的层级上都更新
+      // 3. 否则, 根据随机数的位数按照50%的概率更新
+      need_update = true;
+    }
+
+    if (need_update) {
+      new_node->forward[i] = update[i]->forward[i]; // 可能为nullptr
+      if (new_node->forward[i]) {
+        new_node->forward[i]->set_backward(i, new_node);
+      }
+      update[i]->forward[i] = new_node;
+      new_node->set_backward(i, update[i]);
+    } else {
+      // 如果不更新当前层，之后更高的层级都不更新
+      break;
+    }
   }
 
-  // 更新 backward 指针
-  for (int i = 0; i < new_level; ++i) {
-    if (new_node->forward[i]) {
-      new_node->forward[i]->set_backward(i, new_node);
-    }
-    new_node->set_backward(i, update[i]);
-  }
+  current_level = new_level;
 }
 
 // 查找键值对

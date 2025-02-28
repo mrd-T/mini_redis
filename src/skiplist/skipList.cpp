@@ -41,18 +41,18 @@ bool SkipListIterator::is_end() const { return current == nullptr; }
 // 构造函数
 SkipList::SkipList(int max_lvl) : max_level(max_lvl), current_level(1) {
   head = std::make_shared<SkipListNode>("", "", max_level);
+  dis_01 = std::uniform_int_distribution<>(0, 1);
+  dis_level = std::uniform_int_distribution<>(0, (1 << max_lvl) - 1);
+  gen = std::mt19937(std::random_device()());
 }
 
 int SkipList::random_level() {
-  std::random_device rd;
-  std::mt19937 gen(rd());
-  std::uniform_int_distribution<> dis(0, 1);
   int level = 1;
   // 通过"抛硬币"的方式随机生成层数：
   // - 每次有50%的概率增加一层
   // - 确保层数分布为：第1层100%，第2层50%，第3层25%，以此类推
   // - 层数范围限制在[1, max_level]之间，避免浪费内存
-  while (dis(gen) && level < max_level) {
+  while (dis_01(gen) && level < max_level) {
     level++;
   }
   return level;
@@ -92,11 +92,7 @@ void SkipList::put(const std::string &key, const std::string &value) {
   }
 
   // 生成一个随机数，用于决定是否在每一层更新节点
-  std::random_device rd;
-  std::mt19937 gen(rd());
-  std::uniform_int_distribution<> dis(
-      0, (1 << max_level) - 1); // 生成一个 max_level 位的随机数
-  int random_bits = dis(gen);
+  int random_bits = dis_level(gen);
 
   auto new_node = std::make_shared<SkipListNode>(key, value, new_level);
   size_bytes += key.size() + value.size();

@@ -53,7 +53,7 @@ TEST(SkipListTest, Iterator) {
 // 测试大量数据插入和查找
 TEST(SkipListTest, LargeScaleInsertAndGet) {
   SkipList skipList;
-  const int num_elements = 10;
+  const int num_elements = 10000;
 
   // 插入大量数据
   for (int i = 0; i < num_elements; ++i) {
@@ -73,7 +73,7 @@ TEST(SkipListTest, LargeScaleInsertAndGet) {
 // 测试大量数据删除
 TEST(SkipListTest, LargeScaleRemove) {
   SkipList skipList;
-  const int num_elements = 2000;
+  const int num_elements = 10000;
 
   // 插入大量数据
   // std::cout << "********************** insert **********************"

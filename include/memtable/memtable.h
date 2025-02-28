@@ -23,7 +23,8 @@ class MemTable {
 
 private:
   void put_(const std::string &key, const std::string &value);
-  std::optional<std::string> get_(const std::string &key);
+  std::optional<std::string> cur_get_(const std::string &key);
+  std::optional<std::string> frozen_get_(const std::string &key);
   void remove_(const std::string &key);
   void frozen_cur_table_(); // _ 表示不需要锁的版本
 
@@ -58,5 +59,6 @@ private:
   std::shared_ptr<SkipList> current_table;
   std::list<std::shared_ptr<SkipList>> frozen_tables;
   size_t frozen_bytes;
-  std::shared_mutex rx_mtx; // 以整个 SkipList 为单位的锁
+  std::shared_mutex frozen_mtx; // 冻结表的锁
+  std::shared_mutex cur_mtx;    // 活跃表的锁
 };

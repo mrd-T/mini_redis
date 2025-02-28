@@ -22,27 +22,33 @@ MemTable::~MemTable() = default;
 
 void MemTable::put_(const std::string &key, const std::string &value) {
   current_table->put(key, value);
+}
 
+void MemTable::put(const std::string &key, const std::string &value) {
+  std::unique_lock<std::shared_mutex> lock1(cur_mtx);
+  put_(key, value);
   if (current_table->get_size() > LSM_PER_MEM_SIZE_LIMIT) {
+    // 冻结当前表还需要获取frozen_mtx的写锁
+    std::unique_lock<std::shared_mutex> lock2(frozen_mtx);
     frozen_cur_table_();
   }
 }
 
-void MemTable::put(const std::string &key, const std::string &value) {
-  std::unique_lock<std::shared_mutex> lock(rx_mtx);
-  put_(key, value);
-}
-
 void MemTable::put_batch(
     const std::vector<std::pair<std::string, std::string>> &kvs) {
-  std::unique_lock<std::shared_mutex> lock(rx_mtx);
+  std::unique_lock<std::shared_mutex> lock1(cur_mtx);
   for (auto &[k, v] : kvs) {
     put_(k, v);
   }
+  if (current_table->get_size() > LSM_PER_MEM_SIZE_LIMIT) {
+    // 冻结当前表还需要获取frozen_mtx的写锁
+    std::unique_lock<std::shared_mutex> lock2(frozen_mtx);
+    frozen_cur_table_();
+  }
 }
 
-std::optional<std::string> MemTable::get_(const std::string &key) {
-  // 首先检查当前活跃的memtable
+std::optional<std::string> MemTable::cur_get_(const std::string &key) {
+  // 检查当前活跃的memtable
   auto result = current_table->get(key);
   if (result.has_value()) {
     auto data = result.value();
@@ -50,7 +56,12 @@ std::optional<std::string> MemTable::get_(const std::string &key) {
     return data;
   }
 
-  // 如果当前memtable中没有找到，检查frozen memtable
+  // 没有找到，返回空
+  return std::nullopt;
+}
+
+std::optional<std::string> MemTable::frozen_get_(const std::string &key) {
+  // 检查frozen memtable
   for (auto &tabe : frozen_tables) {
     auto result = tabe->get(key);
     if (result.has_value()) {
@@ -63,33 +74,49 @@ std::optional<std::string> MemTable::get_(const std::string &key) {
 }
 
 std::optional<std::string> MemTable::get(const std::string &key) {
-  std::shared_lock<std::shared_mutex> slock(rx_mtx);
-  return get_(key);
+  // 先获取当前活跃表的锁
+  std::shared_lock<std::shared_mutex> slock1(cur_mtx);
+  auto cur_res = cur_get_(key);
+  if (cur_res.has_value()) {
+    return cur_res;
+  }
+  // 活跃表没有找到，再获取冻结表的锁
+  slock1.unlock();
+  std::shared_lock<std::shared_mutex> slock2(frozen_mtx);
+  return frozen_get_(key);
 }
 
 void MemTable::remove_(const std::string &key) {
   // 删除的方式是写入空值
   current_table->put(key, "");
+}
+
+void MemTable::remove(const std::string &key) {
+  std::unique_lock<std::shared_mutex> lock(cur_mtx);
+  remove_(key);
   if (current_table->get_size() > LSM_PER_MEM_SIZE_LIMIT) {
+    // 冻结当前表还需要获取frozen_mtx的写锁
+    std::unique_lock<std::shared_mutex> lock2(frozen_mtx);
     frozen_cur_table_();
   }
 }
 
-void MemTable::remove(const std::string &key) {
-  std::unique_lock<std::shared_mutex> lock(rx_mtx);
-  remove_(key);
-}
-
 void MemTable::remove_batch(const std::vector<std::string> &keys) {
-  std::unique_lock<std::shared_mutex> lock(rx_mtx);
+  std::unique_lock<std::shared_mutex> lock(cur_mtx);
   // 删除的方式是写入空值
   for (auto &key : keys) {
     remove_(key);
   }
+  if (current_table->get_size() > LSM_PER_MEM_SIZE_LIMIT) {
+    // 冻结当前表还需要获取frozen_mtx的写锁
+    std::unique_lock<std::shared_mutex> lock2(frozen_mtx);
+    frozen_cur_table_();
+  }
 }
 
 void MemTable::clear() {
-  std::unique_lock<std::shared_mutex> lock(rx_mtx);
+  std::unique_lock<std::shared_mutex> lock1(cur_mtx);
+  std::unique_lock<std::shared_mutex> lock2(frozen_mtx);
   frozen_tables.clear();
   current_table->clear();
 }
@@ -99,7 +126,7 @@ std::shared_ptr<SST>
 MemTable::flush_last(SSTBuilder &builder, std::string &sst_path, size_t sst_id,
                      std::shared_ptr<BlockCache> block_cache) {
   // 由于 flush 后需要移除最老的 memtable, 因此需要加写锁
-  std::unique_lock<std::shared_mutex> lock(rx_mtx);
+  std::unique_lock<std::shared_mutex> lock(frozen_mtx);
 
   if (frozen_tables.empty()) {
     // 如果当前表为空，直接返回nullptr
@@ -133,27 +160,30 @@ void MemTable::frozen_cur_table_() {
 }
 
 void MemTable::frozen_cur_table() {
-  std::unique_lock<std::shared_mutex> lock(rx_mtx);
+  std::unique_lock<std::shared_mutex> lock1(cur_mtx);
+  std::unique_lock<std::shared_mutex> lock2(frozen_mtx);
   frozen_cur_table_();
 }
 
 size_t MemTable::get_cur_size() {
-  std::shared_lock<std::shared_mutex> slock(rx_mtx);
+  std::shared_lock<std::shared_mutex> slock(cur_mtx);
   return current_table->get_size();
 }
 
 size_t MemTable::get_frozen_size() {
-  std::shared_lock<std::shared_mutex> slock(rx_mtx);
+  std::shared_lock<std::shared_mutex> slock(frozen_mtx);
   return frozen_bytes;
 }
 
 size_t MemTable::get_total_size() {
-  std::shared_lock<std::shared_mutex> slock(rx_mtx);
+  std::shared_lock<std::shared_mutex> slock1(cur_mtx);
+  std::shared_lock<std::shared_mutex> slock2(frozen_mtx);
   return get_frozen_size() + get_cur_size();
 }
 
 HeapIterator MemTable::begin() {
-  std::shared_lock<std::shared_mutex> slock(rx_mtx);
+  std::shared_lock<std::shared_mutex> slock1(cur_mtx);
+  std::shared_lock<std::shared_mutex> slock2(frozen_mtx);
   std::vector<SearchItem> item_vec;
 
   for (auto iter = current_table->begin(); iter != current_table->end();
@@ -174,12 +204,14 @@ HeapIterator MemTable::begin() {
 }
 
 HeapIterator MemTable::end() {
-  std::shared_lock<std::shared_mutex> slock(rx_mtx);
+  std::shared_lock<std::shared_mutex> slock1(cur_mtx);
+  std::shared_lock<std::shared_mutex> slock2(frozen_mtx);
   return HeapIterator{};
 }
 
 HeapIterator MemTable::iters_preffix(const std::string &preffix) {
-  std::shared_lock<std::shared_mutex> slock(rx_mtx);
+  std::shared_lock<std::shared_mutex> slock1(cur_mtx);
+  std::shared_lock<std::shared_mutex> slock2(frozen_mtx);
   std::vector<SearchItem> item_vec;
 
   for (auto iter = current_table->begin_preffix(preffix);
@@ -203,7 +235,9 @@ HeapIterator MemTable::iters_preffix(const std::string &preffix) {
 std::optional<std::pair<HeapIterator, HeapIterator>>
 MemTable::iters_monotony_predicate(
     std::function<int(const std::string &)> predicate) {
-  std::shared_lock<std::shared_mutex> slock(rx_mtx);
+  std::shared_lock<std::shared_mutex> slock1(cur_mtx);
+  std::shared_lock<std::shared_mutex> slock2(frozen_mtx);
+
   std::vector<SearchItem> item_vec;
 
   auto cur_result = current_table->iters_monotony_predicate(predicate);

@@ -202,7 +202,8 @@ SstIterator::merge_sst_iterator(std::vector<SstIterator> iter_vec) {
   for (auto &iter : iter_vec) {
     while (iter.is_valid() && !iter.is_end()) {
       it_begin.items.emplace(iter.key(), iter.value(),
-                             -iter.m_sst->get_sst_id());
+                             -iter.m_sst->get_sst_id(),
+                             0); // ! 此处的level暂时没有作用, 都作用于同一层的比较
       ++iter;
     }
   }

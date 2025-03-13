@@ -36,10 +36,11 @@ struct SearchItem {
   std::string key;
   std::string value;
   int idx;
+  int level; // 来自sst的level
 
   SearchItem() = default;
-  SearchItem(std::string k, std::string v, int i)
-      : key(std::move(k)), value(std::move(v)), idx(i) {}
+  SearchItem(std::string k, std::string v, int i, int l)
+      : key(std::move(k)), value(std::move(v)), idx(i), level(l) {}
 };
 
 bool operator<(const SearchItem &a, const SearchItem &b);

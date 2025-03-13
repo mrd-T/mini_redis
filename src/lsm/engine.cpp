@@ -230,9 +230,9 @@ void LSMEngine::flush_all() {
 }
 
 std::string LSMEngine::get_sst_path(size_t sst_id, size_t target_level) {
-  // sst的文件路径格式为: data_dir/sst_<sst_id>，sst_id格式化为4位数字
+  // sst的文件路径格式为: data_dir/sst_<sst_id>，sst_id格式化为32位数字
   std::stringstream ss;
-  ss << data_dir << "/sst_" << std::setfill('0') << std::setw(4) << sst_id
+  ss << data_dir << "/sst_" << std::setfill('0') << std::setw(32) << sst_id
      << '.' << target_level;
   return ss.str();
 }
@@ -246,16 +246,20 @@ LSMEngine::lsm_iters_monotony_predicate(
 
   // 再从 sst 中查询
   std::vector<SearchItem> item_vec;
-  for (auto &[sst_idx, sst] : ssts) {
-    auto result = sst_iters_monotony_predicate(sst, predicate);
-    if (!result.has_value()) {
-      continue;
-    }
-    auto [it_begin, it_end] = result.value();
-    for (; it_begin != it_end && it_begin.is_valid(); ++it_begin) {
-      // 这里越古老的sst的idx越小, 我们需要让新的sst优先在堆顶
-      // 让新的sst(拥有更大的idx)排序在前面, 反转符号就行了
-      item_vec.emplace_back(it_begin.key(), it_begin.value(), -sst_idx);
+  for (auto &[sst_level, sst_ids] : level_sst_ids) {
+    for (auto &sst_id : sst_ids) {
+      auto sst = ssts[sst_id];
+      auto result = sst_iters_monotony_predicate(sst, predicate);
+      if (!result.has_value()) {
+        continue;
+      }
+      auto [it_begin, it_end] = result.value();
+      for (; it_begin != it_end && it_begin.is_valid(); ++it_begin) {
+        // l0中, 这里越古老的sst的idx越小, 我们需要让新的sst优先在堆顶
+        // 让新的sst(拥有更大的idx)排序在前面, 反转符号就行了
+        item_vec.emplace_back(it_begin.key(), it_begin.value(), -sst_id,
+                              sst_level);
+      }
     }
   }
 

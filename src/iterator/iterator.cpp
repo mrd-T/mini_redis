@@ -6,12 +6,18 @@ bool operator<(const SearchItem &a, const SearchItem &b) {
   if (a.key != b.key) {
     return a.key < b.key;
   }
+  if (a.level < b.level) {
+    return true;
+  }
   return a.idx < b.idx;
 }
 
 bool operator>(const SearchItem &a, const SearchItem &b) {
   if (a.key != b.key) {
     return a.key > b.key;
+  }
+  if (a.level < b.level) {
+    return true;
   }
   return a.idx > b.idx;
 }

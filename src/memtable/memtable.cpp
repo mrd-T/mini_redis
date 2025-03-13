@@ -188,14 +188,14 @@ HeapIterator MemTable::begin() {
 
   for (auto iter = current_table->begin(); iter != current_table->end();
        ++iter) {
-    item_vec.emplace_back(iter.get_key(), iter.get_value(), 0);
+    item_vec.emplace_back(iter.get_key(), iter.get_value(), 0, 0);
   }
 
   int table_idx = 1;
   for (auto ft = frozen_tables.begin(); ft != frozen_tables.end(); ft++) {
     auto table = *ft;
     for (auto iter = table->begin(); iter != table->end(); ++iter) {
-      item_vec.emplace_back(iter.get_key(), iter.get_value(), table_idx);
+      item_vec.emplace_back(iter.get_key(), iter.get_value(), table_idx, 0);
     }
     table_idx++;
   }
@@ -216,7 +216,7 @@ HeapIterator MemTable::iters_preffix(const std::string &preffix) {
 
   for (auto iter = current_table->begin_preffix(preffix);
        iter != current_table->end_preffix(preffix); ++iter) {
-    item_vec.emplace_back(iter.get_key(), iter.get_value(), 0);
+    item_vec.emplace_back(iter.get_key(), iter.get_value(), 0, 0);
   }
 
   int table_idx = 1;
@@ -224,7 +224,7 @@ HeapIterator MemTable::iters_preffix(const std::string &preffix) {
     auto table = *ft;
     for (auto iter = table->begin_preffix(preffix);
          iter != table->end_preffix(preffix); ++iter) {
-      item_vec.emplace_back(iter.get_key(), iter.get_value(), table_idx);
+      item_vec.emplace_back(iter.get_key(), iter.get_value(), table_idx, 0);
     }
     table_idx++;
   }
@@ -244,7 +244,7 @@ MemTable::iters_monotony_predicate(
   if (cur_result.has_value()) {
     auto [begin, end] = cur_result.value();
     for (auto iter = begin; iter != end; ++iter) {
-      item_vec.emplace_back(iter.get_key(), iter.get_value(), 0);
+      item_vec.emplace_back(iter.get_key(), iter.get_value(), 0, 0);
     }
   }
 
@@ -255,7 +255,7 @@ MemTable::iters_monotony_predicate(
     if (result.has_value()) {
       auto [begin, end] = result.value();
       for (auto iter = begin; iter != end; ++iter) {
-        item_vec.emplace_back(iter.get_key(), iter.get_value(), table_idx);
+        item_vec.emplace_back(iter.get_key(), iter.get_value(), table_idx, 0);
       }
     }
     table_idx++;

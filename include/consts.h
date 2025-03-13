@@ -4,6 +4,8 @@
 #define LSM_PER_MEM_SIZE_LIMIT (4 * 1024 * 1024) // 内存表的大小限制, 4MB
 #define LSM_BLOCK_SIZE (32 * 1024)               // BLOCK的大小, 32KB
 
+#define LSM_SST_LEVEL_RATIO 16 // 不同层级的sst的大小比例
+
 // // 测试时使用的小批量数据, 测试时可以注释上面的定义
 // #define LSM_TOL_MEM_SIZE_LIMIT (4 * 1024 * 1024) // 内存表的大小限制, 4MB
 // #define LSM_PER_MEM_SIZE_LIMIT (256 * 1024) // 内存表的大小限制, 256KB

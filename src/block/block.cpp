@@ -301,6 +301,8 @@ Block::Entry Block::get_entry_at(size_t offset) const {
   return entry;
 }
 
+size_t Block::size() const { return offsets.size(); }
+
 size_t Block::cur_size() const {
   return data.size() + offsets.size() * sizeof(uint16_t) + sizeof(uint16_t);
 }

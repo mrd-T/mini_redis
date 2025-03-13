@@ -108,8 +108,6 @@ void SstIterator::seek(const std::string &key) {
   }
 }
 
-bool SstIterator::is_end() { return !m_block_it; }
-
 std::string SstIterator::key() {
   if (!m_block_it) {
     throw std::runtime_error("Iterator is invalid");
@@ -124,7 +122,7 @@ std::string SstIterator::value() {
   return (*m_block_it)->second;
 }
 
-SstIterator &SstIterator::operator++() {
+BaseIterator &SstIterator::operator++() {
   if (!m_block_it) { // 添加空指针检查
     return *this;
   }
@@ -144,28 +142,27 @@ SstIterator &SstIterator::operator++() {
   return *this;
 }
 
-bool SstIterator::is_valid() {
-  return m_block_it && !m_block_it->is_end() &&
-         m_block_idx < m_sst->num_blocks();
-}
-
-bool SstIterator::operator==(const SstIterator &other) const {
-  if (m_sst != other.m_sst || m_block_idx != other.m_block_idx) {
+bool SstIterator::operator==(const BaseIterator &other) const {
+  if (other.get_type() != IteratorType::SstIterator) {
+    return false;
+  }
+  auto other2 = dynamic_cast<const SstIterator &>(other);
+  if (m_sst != other2.m_sst || m_block_idx != other2.m_block_idx) {
     return false;
   }
 
-  if (!m_block_it && !other.m_block_it) {
+  if (!m_block_it && !other2.m_block_it) {
     return true;
   }
 
-  if (!m_block_it || !other.m_block_it) {
+  if (!m_block_it || !other2.m_block_it) {
     return false;
   }
 
-  return *m_block_it == *other.m_block_it;
+  return *m_block_it == *other2.m_block_it;
 }
 
-bool SstIterator::operator!=(const SstIterator &other) const {
+bool SstIterator::operator!=(const BaseIterator &other) const {
   return !(*this == other);
 }
 
@@ -176,6 +173,14 @@ SstIterator::value_type SstIterator::operator*() const {
   return (**m_block_it);
 }
 
+IteratorType SstIterator::get_type() const { return IteratorType::SstIterator; }
+
+bool SstIterator::is_end() const { return !m_block_it; }
+
+bool SstIterator::is_valid() const {
+  return m_block_it && !m_block_it->is_end() &&
+         m_block_idx < m_sst->num_blocks();
+}
 SstIterator::pointer SstIterator::operator->() const {
   update_current();
   return &(*cached_value);
@@ -185,4 +190,21 @@ void SstIterator::update_current() const {
   if (!cached_value && m_block_it && !m_block_it->is_end()) {
     cached_value = *(*m_block_it);
   }
+}
+
+std::pair<HeapIterator, HeapIterator>
+SstIterator::merge_sst_iterator(std::vector<SstIterator> iter_vec) {
+  if (iter_vec.empty()) {
+    return std::make_pair(HeapIterator(), HeapIterator());
+  }
+
+  HeapIterator it_begin;
+  for (auto &iter : iter_vec) {
+    while (iter.is_valid() && !iter.is_end()) {
+      it_begin.items.emplace(iter.key(), iter.value(),
+                             -iter.m_sst->get_sst_id());
+      ++iter;
+    }
+  }
+  return std::make_pair(it_begin, HeapIterator());
 }

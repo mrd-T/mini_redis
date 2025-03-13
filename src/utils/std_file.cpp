@@ -56,3 +56,5 @@ bool StdFile::sync() {
   file_.flush();
   return file_.good();
 }
+
+bool StdFile::remove() { return std::remove(filename_.c_str()) == 0; }

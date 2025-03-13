@@ -4,38 +4,39 @@
 
 // ************************ SkipListIterator ************************
 
-std::pair<std::string, std::string> SkipListIterator::operator*() const {
-  if (!current)
-    throw std::runtime_error("Dereferencing invalid iterator");
-  return {current->key, current->value};
-}
-
-SkipListIterator &SkipListIterator::operator++() {
+BaseIterator &SkipListIterator::operator++() {
   if (current) {
     current = current->forward[0];
   }
   return *this;
 }
 
-SkipListIterator SkipListIterator::operator++(int) {
-  SkipListIterator temp = *this;
-  ++(*this);
-  return temp;
+bool SkipListIterator::operator==(const BaseIterator &other) const {
+  if (other.get_type() != IteratorType::SkipListIterator)
+    return false;
+  auto other2 = dynamic_cast<const SkipListIterator &>(other);
+  return current == other2.current;
 }
 
-bool SkipListIterator::operator==(const SkipListIterator &other) const {
-  return current == other.current;
-}
-
-bool SkipListIterator::operator!=(const SkipListIterator &other) const {
+bool SkipListIterator::operator!=(const BaseIterator &other) const {
   return !(*this == other);
 }
 
-std::string SkipListIterator::get_key() const { return current->key; }
-std::string SkipListIterator::get_value() const { return current->value; }
+SkipListIterator::value_type SkipListIterator::operator*() const {
+  if (!current)
+    throw std::runtime_error("Dereferencing invalid iterator");
+  return {current->key, current->value};
+}
+
+IteratorType SkipListIterator::get_type() const {
+  return IteratorType::SkipListIterator;
+}
 
 bool SkipListIterator::is_valid() const { return !current->value.empty(); }
 bool SkipListIterator::is_end() const { return current == nullptr; }
+
+std::string SkipListIterator::get_key() const { return current->key; }
+std::string SkipListIterator::get_value() const { return current->value; }
 
 // ************************ SkipList ************************
 // 构造函数

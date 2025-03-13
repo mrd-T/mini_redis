@@ -187,14 +187,14 @@ HeapIterator MemTable::begin() {
   std::vector<SearchItem> item_vec;
 
   for (auto iter = current_table->begin(); iter != current_table->end();
-       iter++) {
+       ++iter) {
     item_vec.emplace_back(iter.get_key(), iter.get_value(), 0);
   }
 
   int table_idx = 1;
   for (auto ft = frozen_tables.begin(); ft != frozen_tables.end(); ft++) {
     auto table = *ft;
-    for (auto iter = table->begin(); iter != table->end(); iter++) {
+    for (auto iter = table->begin(); iter != table->end(); ++iter) {
       item_vec.emplace_back(iter.get_key(), iter.get_value(), table_idx);
     }
     table_idx++;
@@ -215,7 +215,7 @@ HeapIterator MemTable::iters_preffix(const std::string &preffix) {
   std::vector<SearchItem> item_vec;
 
   for (auto iter = current_table->begin_preffix(preffix);
-       iter != current_table->end_preffix(preffix); iter++) {
+       iter != current_table->end_preffix(preffix); ++iter) {
     item_vec.emplace_back(iter.get_key(), iter.get_value(), 0);
   }
 
@@ -223,7 +223,7 @@ HeapIterator MemTable::iters_preffix(const std::string &preffix) {
   for (auto ft = frozen_tables.begin(); ft != frozen_tables.end(); ft++) {
     auto table = *ft;
     for (auto iter = table->begin_preffix(preffix);
-         iter != table->end_preffix(preffix); iter++) {
+         iter != table->end_preffix(preffix); ++iter) {
       item_vec.emplace_back(iter.get_key(), iter.get_value(), table_idx);
     }
     table_idx++;

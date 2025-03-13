@@ -42,7 +42,7 @@ target("block")
 
 target("sst")
     set_kind("static")  -- 生成静态库
-    add_deps("block", "utils")
+    add_deps("block", "utils", "iterator")
     add_files("src/sst/*.cpp")
     add_includedirs("include", {public = true})
 
@@ -135,19 +135,19 @@ target("test_redis")
     add_includedirs("include")
     add_packages("gtest")
 
--- 定义 示例
-target("example")
-    set_kind("binary")
-    add_files("example/main.cpp")
-    add_deps("lsm_shared")
-    add_includedirs("include", {public = true})
-    set_targetdir("$(buildir)/bin")
+-- -- 定义 示例
+-- target("example")
+--     set_kind("binary")
+--     add_files("example/main.cpp")
+--     add_deps("lsm_shared")
+--     add_includedirs("include", {public = true})
+--     set_targetdir("$(buildir)/bin")
 
--- 定义server
-target("server")
-    set_kind("binary")
-    add_files("server/src/*.cpp")
-    add_deps("redis")
-    add_includedirs("include", {public = true})
-    add_packages("muduo")
-    set_targetdir("$(buildir)/bin")
+-- -- 定义server
+-- target("server")
+--     set_kind("binary")
+--     add_files("server/src/*.cpp")
+--     add_deps("redis")
+--     add_includedirs("include", {public = true})
+--     add_packages("muduo")
+--     set_targetdir("$(buildir)/bin")

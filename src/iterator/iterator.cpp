@@ -44,7 +44,7 @@ HeapIterator::value_type HeapIterator::operator*() const {
   return std::make_pair(items.top().key, items.top().value);
 }
 
-HeapIterator &HeapIterator::operator++() {
+BaseIterator &HeapIterator::operator++() {
   if (items.empty()) {
     return *this; // 处理空队列情况
   }
@@ -68,22 +68,27 @@ HeapIterator &HeapIterator::operator++() {
   return *this;
 }
 
-bool HeapIterator::operator==(const HeapIterator &other) const {
-  if (items.empty() && other.items.empty()) {
-    return true;
-  }
-  if (items.empty() || other.items.empty()) {
+bool HeapIterator::operator==(const BaseIterator &other) const {
+  if (other.get_type() != IteratorType::HeapIterator) {
     return false;
   }
-  return items.top().key == other.items.top().key &&
-         items.top().value == other.items.top().value;
+  auto other2 = dynamic_cast<const HeapIterator &>(other);
+  if (items.empty() && other2.items.empty()) {
+    return true;
+  }
+  if (items.empty() || other2.items.empty()) {
+    return false;
+  }
+  return items.top().key == other2.items.top().key &&
+         items.top().value == other2.items.top().value;
 }
 
-bool HeapIterator::operator!=(const HeapIterator &other) const {
+bool HeapIterator::operator!=(const BaseIterator &other) const {
   return !(*this == other);
 }
 
 bool HeapIterator::is_end() const { return items.empty(); }
+bool HeapIterator::is_valid() const { return !items.empty(); }
 
 void HeapIterator::update_current() const {
   if (!items.empty()) {
@@ -91,4 +96,8 @@ void HeapIterator::update_current() const {
   } else {
     current.reset();
   }
+}
+
+IteratorType HeapIterator::get_type() const {
+  return IteratorType::HeapIterator;
 }

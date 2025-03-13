@@ -1,5 +1,5 @@
 #pragma once
-
+#include "../iterator/iterator.h"
 #include <cstddef>
 #include <functional>
 #include <memory>
@@ -29,7 +29,7 @@ struct SkipListNode {
 
 // ************************ SkipListIterator ************************
 
-class SkipListIterator {
+class SkipListIterator : public BaseIterator {
 public:
   // ! deprecated: 构造函数，接收锁
   // SkipListIterator(std::shared_ptr<SkipListNode> node, std::shared_mutex
@@ -43,21 +43,15 @@ public:
   // 空迭代器构造函数
   SkipListIterator() : current(nullptr), lock(nullptr) {}
 
-  std::pair<std::string, std::string> operator*() const;
-
-  SkipListIterator &operator++(); // 前置自增
-
-  SkipListIterator operator++(int); // 后置自增
-
-  bool operator==(const SkipListIterator &other) const;
-
-  bool operator!=(const SkipListIterator &other) const;
-
+  virtual BaseIterator &operator++() override;
+  virtual bool operator==(const BaseIterator &other) const override;
+  virtual bool operator!=(const BaseIterator &other) const override;
+  virtual value_type operator*() const override;
+  virtual IteratorType get_type() const override;
+  virtual bool is_end() const override;
+  virtual bool is_valid() const override;
   std::string get_key() const;
   std::string get_value() const;
-
-  bool is_valid() const;
-  bool is_end() const;
 
 private:
   std::shared_ptr<SkipListNode> current;

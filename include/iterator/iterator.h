@@ -1,9 +1,36 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <queue>
 #include <string>
+#include <utility>
 
+enum class IteratorType {
+  SkipListIterator,
+  MemTableIterator,
+  SstIterator,
+  HeapIterator,
+  TwoMergeIterator,
+  ConcactIterator,
+};
+
+class BaseIterator {
+public:
+  using value_type = std::pair<std::string, std::string>;
+  using pointer = value_type *;
+  using reference = value_type &;
+
+  virtual BaseIterator &operator++() = 0;
+  virtual bool operator==(const BaseIterator &other) const = 0;
+  virtual bool operator!=(const BaseIterator &other) const = 0;
+  virtual value_type operator*() const = 0;
+  virtual IteratorType get_type() const = 0;
+  virtual bool is_end() const = 0;
+  virtual bool is_valid() const = 0;
+};
+
+class SstIterator;
 // *************************** SearchItem ***************************
 struct SearchItem {
   std::string key;
@@ -20,21 +47,22 @@ bool operator>(const SearchItem &a, const SearchItem &b);
 bool operator==(const SearchItem &a, const SearchItem &b);
 
 // *************************** HeapIterator ***************************
-class HeapIterator {
-  using value_type = std::pair<std::string, std::string>;
-  using pointer = value_type *;
-  using reference = value_type &;
+class HeapIterator : public BaseIterator {
+  friend class SstIterator;
 
 public:
   HeapIterator() = default;
   HeapIterator(std::vector<SearchItem> item_vec);
-  virtual pointer operator->() const;
-  virtual value_type operator*() const;
-  HeapIterator &operator++();
-  HeapIterator operator++(int) = delete;
-  virtual bool operator==(const HeapIterator &other) const;
-  virtual bool operator!=(const HeapIterator &other) const;
-  virtual bool is_end() const;
+  pointer operator->() const;
+  virtual value_type operator*() const override;
+  BaseIterator &operator++() override;
+  BaseIterator operator++(int) = delete;
+  virtual bool operator==(const BaseIterator &other) const override;
+  virtual bool operator!=(const BaseIterator &other) const override;
+
+  virtual IteratorType get_type() const override;
+  virtual bool is_end() const override;
+  virtual bool is_valid() const override;
 
 private:
   std::priority_queue<SearchItem, std::vector<SearchItem>,

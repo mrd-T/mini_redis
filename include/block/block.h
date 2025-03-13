@@ -59,6 +59,7 @@ public:
   bool add_entry(const std::string &key, const std::string &value);
   std::optional<std::string> get_value_binary(const std::string &key);
 
+  size_t size() const;
   size_t cur_size() const;
   bool is_empty() const;
   std::optional<size_t> get_idx_binary(const std::string &key);

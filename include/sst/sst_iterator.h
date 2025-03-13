@@ -1,10 +1,11 @@
 #pragma once
 #include "../block/block_iterator.h"
-#include "../iterator/iterator.h"
 #include <cstddef>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <utility>
+#include <vector>
 
 class SstIterator;
 class SST;
@@ -13,17 +14,13 @@ std::optional<std::pair<SstIterator, SstIterator>>
 sst_iters_monotony_predicate(std::shared_ptr<SST> sst,
                              std::function<int(const std::string &)> predicate);
 
-class SstIterator {
+class SstIterator : public BaseIterator {
   friend std::optional<std::pair<SstIterator, SstIterator>>
   sst_iters_monotony_predicate(
       std::shared_ptr<SST> sst,
       std::function<int(const std::string &)> predicate);
 
   friend SST;
-
-  using value_type = std::pair<std::string, std::string>;
-  using pointer = value_type *;
-  using reference = value_type &;
 
 private:
   std::shared_ptr<SST> m_sst;
@@ -48,15 +45,19 @@ public:
 
   void seek_first();
   void seek(const std::string &key);
-  bool is_end();
   std::string key();
   std::string value();
 
-  SstIterator &operator++();
-  SstIterator operator++(int) = delete;
-  bool operator==(const SstIterator &other) const;
-  bool operator!=(const SstIterator &other) const;
-  value_type operator*() const;
+  virtual BaseIterator &operator++() override;
+  virtual bool operator==(const BaseIterator &other) const override;
+  virtual bool operator!=(const BaseIterator &other) const override;
+  virtual value_type operator*() const override;
+  virtual IteratorType get_type() const override;
+  virtual bool is_end() const override;
+  virtual bool is_valid() const override;
+
   pointer operator->() const;
-  bool is_valid();
+
+  static std::pair<HeapIterator, HeapIterator>
+  merge_sst_iterator(std::vector<SstIterator> iter_vec);
 };

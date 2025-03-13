@@ -318,7 +318,7 @@ TEST(SkipListTest, ItersPredicate_Large) {
   EXPECT_EQ(range_begin_iter.get_key(), "key1010");
   EXPECT_EQ(range_end_iter.get_key(), "key1020");
   for (int i = 0; i < 5; i++) {
-    range_begin_iter++;
+    ++range_begin_iter;
   }
   EXPECT_EQ(range_begin_iter.get_key(), "key1016");
 }

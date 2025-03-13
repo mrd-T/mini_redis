@@ -40,4 +40,7 @@ public:
 
   // 同步到磁盘
   bool sync();
+
+  // 删除文件
+  bool remove();
 };

@@ -27,7 +27,7 @@ BlockIterator::pointer BlockIterator::operator->() const {
 }
 
 BlockIterator &BlockIterator::operator++() {
-  if (block && current_index < block->cur_size()) {
+  if (block && current_index < block->size()) {
     ++current_index;
     cached_value = std::nullopt; // 清除缓存
   }
@@ -50,7 +50,7 @@ bool BlockIterator::operator!=(const BlockIterator &other) const {
 }
 
 BlockIterator::value_type BlockIterator::operator*() const {
-  if (!block || current_index >= block->cur_size()) {
+  if (!block || current_index >= block->size()) {
     throw std::out_of_range("Iterator out of range");
   }
 

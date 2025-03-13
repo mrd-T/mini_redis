@@ -32,6 +32,9 @@ public:
   // 设置文件大小
   void set_size(size_t size);
 
+  // 删除文件
+  void del_file();
+
   // 创建文件对象, 并写入到磁盘
   static FileObj create_and_write(const std::string &path,
                                   std::vector<uint8_t> buf);

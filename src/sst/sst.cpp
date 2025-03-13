@@ -61,9 +61,7 @@ std::shared_ptr<SST> SST::open(size_t sst_id, FileObj file,
   return sst;
 }
 
-void SST::del_sst() {
-  
-}
+void SST::del_sst() { file.del_file(); }
 
 std::shared_ptr<SST> SST::create_sst_with_meta_only(
     size_t sst_id, size_t file_size, const std::string &first_key,

@@ -6,7 +6,7 @@
 #include <string>
 #include <unordered_map>
 
-class LSMTest : public ::testing::Test {
+class CompactTest : public ::testing::Test {
 protected:
   void SetUp() override {
     // Create a temporary test directory
@@ -28,7 +28,7 @@ protected:
 };
 
 // Test basic operations: put, get, remove
-TEST_F(LSMTest, BasicOperations) {
+TEST_F(CompactTest, BasicOperations) {
   LSM lsm(test_dir);
 
   // Test put and get
@@ -48,7 +48,7 @@ TEST_F(LSMTest, BasicOperations) {
 }
 
 // Test persistence across restarts
-TEST_F(LSMTest, Persistence) {
+TEST_F(CompactTest, Persistence) {
   std::unordered_map<std::string, std::string> kvs;
   int num = 100000;
   {
@@ -84,7 +84,7 @@ TEST_F(LSMTest, Persistence) {
 }
 
 // Test large scale operations
-TEST_F(LSMTest, LargeScaleOperations) {
+TEST_F(CompactTest, LargeScaleOperations) {
   LSM lsm(test_dir);
   std::vector<std::pair<std::string, std::string>> data;
 
@@ -103,7 +103,7 @@ TEST_F(LSMTest, LargeScaleOperations) {
 }
 
 // Test iterator functionality
-TEST_F(LSMTest, IteratorOperations) {
+TEST_F(CompactTest, IteratorOperations) {
   LSM lsm(test_dir);
   std::map<std::string, std::string> reference;
 
@@ -130,7 +130,7 @@ TEST_F(LSMTest, IteratorOperations) {
 }
 
 // Test mixed operations
-TEST_F(LSMTest, MixedOperations) {
+TEST_F(CompactTest, MixedOperations) {
   LSM lsm(test_dir);
   std::map<std::string, std::string> reference;
 
@@ -154,7 +154,7 @@ TEST_F(LSMTest, MixedOperations) {
   EXPECT_FALSE(lsm.get("key1").has_value());
 }
 
-TEST_F(LSMTest, MonotonyPredicate) {
+TEST_F(CompactTest, MonotonyPredicate) {
   LSM lsm(test_dir);
 
   // Insert data

@@ -1,7 +1,7 @@
 #include "../../include/sst/concact_iterator.h"
 
 ConcactIterator::ConcactIterator(std::vector<std::shared_ptr<SST>> ssts)
-    : ssts(std::move(ssts)), cur_iter(nullptr), cur_idx(0) {
+    : ssts(ssts), cur_iter(nullptr), cur_idx(0) {
   if (!this->ssts.empty()) {
     cur_iter = ssts[0]->begin();
   }

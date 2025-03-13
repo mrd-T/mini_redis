@@ -20,6 +20,7 @@ public:
   std::shared_mutex ssts_mtx;
   std::shared_ptr<BlockCache> block_cache;
   size_t cur_max_sst_id = 0;
+  size_t cur_max_level = 0;
 
 public:
   LSMEngine(std::string path);
@@ -56,7 +57,6 @@ private:
                       size_t level_y);
 
   std::vector<std::shared_ptr<SST>> gen_sst_from_iter(BaseIterator &iter,
-                                                      bool to_bottom,
                                                       size_t target_sst_size,
                                                       size_t target_level);
 };

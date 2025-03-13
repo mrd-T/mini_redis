@@ -4,6 +4,7 @@
 #include "../../include/sst/sst.h"
 #include "../../include/sst/sst_iterator.h"
 #include <algorithm>
+#include <cstddef>
 #include <filesystem>
 #include <memory>
 #include <mutex>
@@ -60,6 +61,7 @@ LSMEngine::LSMEngine(std::string path) : data_dir(path) {
 
       cur_max_sst_id =
           std::max(sst_id, cur_max_sst_id); // 记录目前最大的 sst_id
+      cur_max_level = std::max(level, cur_max_level); // 记录目前最大的 level
       std::string sst_path = get_sst_path(sst_id, level);
       auto sst = SST::open(sst_id, FileObj::open(sst_path), block_cache);
       ssts[sst_id] = sst;
@@ -70,7 +72,11 @@ LSMEngine::LSMEngine(std::string path) : data_dir(path) {
 
     for (auto &[level, sst_id_list] : level_sst_ids) {
       std::sort(sst_id_list.begin(), sst_id_list.end());
-      std::reverse(sst_id_list.begin(), sst_id_list.end());
+      if (level == 0) {
+        // 其他 level 的 sst 都是没有重叠的, 且 id 小的表示 key
+        // 排序在前面的部分, 不需要 reverse
+        std::reverse(sst_id_list.begin(), sst_id_list.end());
+      }
     }
   }
 }
@@ -95,10 +101,9 @@ std::optional<std::string> LSMEngine::get(const std::string &key) {
 
   // 2. l0 sst中查询
   std::shared_lock<std::shared_mutex> rlock(ssts_mtx); // 读锁
-  auto l0_sst_ids = level_sst_ids[0];
 
-  for (auto &sst_id : l0_sst_ids) {
-    // l0_sst_ids 中的 sst_id 是按从大到小的顺序排列,
+  for (auto &sst_id : level_sst_ids[0]) {
+    //  中的 sst_id 是按从大到小的顺序排列,
     // sst_id 越大, 表示是越晚刷入的, 优先查询
     auto sst = ssts[sst_id];
     auto sst_iterator = sst->get(key);
@@ -114,16 +119,16 @@ std::optional<std::string> LSMEngine::get(const std::string &key) {
   }
 
   // 3. 其他level的sst中查询
-  for (size_t level = 1; level < level_sst_ids.size(); level++) {
+  for (size_t level = 1; level <= cur_max_level; level++) {
     std::deque<size_t> l_sst_ids = level_sst_ids[level];
     // 二分查询
-    int left = 0;
-    int right = l_sst_ids.size() - 1;
-    while (left <= right) {
-      int mid = left + (right - left) / 2;
+    size_t left = 0;
+    size_t right = l_sst_ids.size();
+    while (left < right) {
+      size_t mid = left + (right - left) / 2;
       auto sst = ssts[l_sst_ids[mid]];
       if (sst->get_first_key() <= key && key <= sst->get_last_key()) {
-        // 如果sst_id在l0_sst_ids中, 则在sst中查询
+        // 如果sst_id在中, 则在sst中查询
         auto sst_iterator = sst->get(key);
         if (sst_iterator.is_valid()) {
           if ((sst_iterator)->second.size() > 0) {
@@ -133,11 +138,13 @@ std::optional<std::string> LSMEngine::get(const std::string &key) {
             // 空值表示被删除了
             return std::nullopt;
           }
+        } else {
+          break;
         }
       } else if (sst->get_last_key() < key) {
         left = mid + 1;
       } else {
-        right = mid - 1;
+        right = mid;
       }
     }
   }
@@ -173,8 +180,7 @@ void LSMEngine::remove_batch(const std::vector<std::string> &keys) {
 
 void LSMEngine::clear() {
   memtable.clear();
-  auto l0_sst_ids = level_sst_ids[0];
-  l0_sst_ids.clear();
+  level_sst_ids.clear();
   ssts.clear();
   // 清空当前文件夹的所有内容
   for (const auto &entry : std::filesystem::directory_iterator(data_dir)) {
@@ -190,13 +196,13 @@ void LSMEngine::flush() {
     return;
   }
 
+  std::unique_lock<std::shared_mutex> lock(ssts_mtx); // 写锁
+
   // 1. 先判断 l0 sst 是否数量超限需要concat到 l1
   if (level_sst_ids.find(0) != level_sst_ids.end() &&
       level_sst_ids[0].size() >= LSM_SST_LEVEL_RATIO) {
     full_compact(0);
   }
-
-  auto l0_sst_ids = level_sst_ids[0];
 
   // 2. 创建新的 SST ID
   // 链表头部存储的是最新刷入的sst, 其sst_id最大
@@ -210,12 +216,11 @@ void LSMEngine::flush() {
   auto new_sst =
       memtable.flush_last(builder, sst_path, new_sst_id, block_cache);
 
-  std::unique_lock<std::shared_mutex> lock(ssts_mtx); // 写锁
   // 5. 更新内存索引
   ssts[new_sst_id] = new_sst;
 
   // 6. 更新 sst_ids
-  l0_sst_ids.push_front(new_sst_id);
+  level_sst_ids[0].push_front(new_sst_id);
 }
 
 void LSMEngine::flush_all() {
@@ -281,8 +286,7 @@ LSMEngine::lsm_iters_monotony_predicate(
 TwoMergeIterator LSMEngine::begin() {
   std::vector<SstIterator> iter_vec;
   std::shared_lock<std::shared_mutex> lock(ssts_mtx); // 读锁
-  auto l0_sst_ids = level_sst_ids[0];
-  for (auto &sst_id : l0_sst_ids) {
+  for (auto &sst_id : level_sst_ids[0]) {
     auto sst = ssts[sst_id];
     for (auto iter = sst->begin(); iter != sst->end(); ++iter) {
       // 这里越新的sst的idx越大, 我们需要让新的sst优先在堆顶
@@ -305,10 +309,8 @@ TwoMergeIterator LSMEngine::end() { return TwoMergeIterator{}; }
 void LSMEngine::full_compact(size_t src_level) {
   // 将 src_level 的 sst 全体压缩到 src_level + 1
 
-  std::unique_lock<std::shared_mutex> lock(ssts_mtx); // 写锁
-
   // 递归地判断下一级 level 是否需要 full compact
-  if (level_sst_ids[src_level + 1].size() == LSM_SST_LEVEL_RATIO) {
+  if (level_sst_ids[src_level + 1].size() >= LSM_SST_LEVEL_RATIO) {
     full_compact(src_level + 1);
   }
 
@@ -330,20 +332,22 @@ void LSMEngine::full_compact(size_t src_level) {
     ssts.erase(old_sst_id);
   }
   for (auto &old_sst_id : old_level_id_y) {
+    ssts[old_sst_id]->del_sst();
     ssts.erase(old_sst_id);
   }
   level_sst_ids[src_level].clear();
   level_sst_ids[src_level + 1].clear();
+
+  cur_max_level = std::max(cur_max_level, src_level + 1);
 
   // 添加新的sst
   for (auto &new_sst : new_ssts) {
     level_sst_ids[src_level + 1].push_back(new_sst->get_sst_id());
     ssts[new_sst->get_sst_id()] = new_sst;
   }
+  // 此处没必要reverse了
   std::sort(level_sst_ids[src_level + 1].begin(),
             level_sst_ids[src_level + 1].end());
-  std::reverse(level_sst_ids[src_level + 1].begin(),
-               level_sst_ids[src_level + 1].end());
 }
 
 std::vector<std::shared_ptr<SST>>
@@ -370,7 +374,7 @@ LSMEngine::full_l0_l1_compact(std::vector<size_t> &l0_ids,
 
   TwoMergeIterator l0_l1_begin(l0_begin_ptr, old_l1_begin_ptr);
 
-  return gen_sst_from_iter(l0_l1_begin, true,
+  return gen_sst_from_iter(l0_l1_begin,
                            LSM_PER_MEM_SIZE_LIMIT * LSM_SST_LEVEL_RATIO, 1);
 }
 
@@ -395,27 +399,21 @@ LSMEngine::full_common_compact(std::vector<size_t> &lx_ids,
 
   TwoMergeIterator lx_ly_begin(old_lx_begin_ptr, old_ly_begin_ptr);
 
-  // 如果目标 level 的下一级 level+1 不存在, 则为底层的level, 可以清理掉删除标记
-  bool to_bottom = level_sst_ids.find(level_y + 1) == level_sst_ids.end();
+  // TODO:如果目标 level 的下一级 level+1 不存在, 则为底层的level,
+  // 可以清理掉删除标记
 
-  return gen_sst_from_iter(lx_ly_begin, to_bottom,
-                           LSMEngine::get_sst_size(level_y), level_y);
+  return gen_sst_from_iter(lx_ly_begin, LSMEngine::get_sst_size(level_y),
+                           level_y);
 }
 
 std::vector<std::shared_ptr<SST>>
-LSMEngine::gen_sst_from_iter(BaseIterator &iter, bool to_bottom,
-                             size_t target_sst_size, size_t target_level) {
+LSMEngine::gen_sst_from_iter(BaseIterator &iter, size_t target_sst_size,
+                             size_t target_level) {
   std::vector<std::shared_ptr<SST>> new_ssts;
   auto new_sst_builder = SSTBuilder(LSM_BLOCK_SIZE, true);
   while (iter.is_valid() && !iter.is_end()) {
-    if (to_bottom) {
-      // 如果生成的sst是最底层, 就不需要保留删除标记的键值对了
-      if (!(*iter).second.empty()) {
-        new_sst_builder.add((*iter).first, (*iter).second);
-      }
-    } else {
-      new_sst_builder.add((*iter).first, (*iter).second);
-    }
+
+    new_sst_builder.add((*iter).first, (*iter).second);
     ++iter;
 
     if (new_sst_builder.estimated_size() >= target_sst_size) {
@@ -448,10 +446,7 @@ size_t LSMEngine::get_sst_size(size_t level) {
 // *********************** LSM ***********************
 LSM::LSM(std::string path) : engine(path) {}
 
-LSM::~LSM() {
-  // 确保所有数据都已经刷新到磁盘
-  engine.flush();
-}
+LSM::~LSM() = default;
 
 std::optional<std::string> LSM::get(const std::string &key) {
   return engine.get(key);

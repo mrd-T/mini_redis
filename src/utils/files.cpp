@@ -25,6 +25,7 @@ size_t FileObj::size() const { return m_file->size(); }
 
 void FileObj::set_size(size_t size) { m_size = size; }
 
+void FileObj::del_file() { m_file->remove(); }
 FileObj FileObj::create_and_write(const std::string &path,
                                   std::vector<uint8_t> buf) {
   FileObj file_obj;

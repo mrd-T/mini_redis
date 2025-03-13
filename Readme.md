@@ -118,12 +118,12 @@ The performance of the wrapper redis server is not very good, but it is still fa
   - [x] Merge
   - [x] Range Query
   - [x] flush to sst
-- [ ] SST
+- [x] SST
   - [x] Encode/Decode
   - [x] Iterator
   - [x] Query
   - [x] Range Query
-  - [ ] Compact
+  - [x] Compact
 - [ ] Wal
 - [ ] Transaction
   - [ ] MVCC

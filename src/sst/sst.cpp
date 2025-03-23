@@ -295,6 +295,7 @@ SSTBuilder::build(size_t sst_id, const std::string &path,
   res->first_key = meta_entries.front().first_key;
   res->last_key = meta_entries.back().last_key;
   res->meta_block_offset = meta_offset;
+  res->bloom_filter = this->bloom_filter;
   res->bloom_offset = bloom_offset;
   res->meta_entries = std::move(meta_entries);
   res->block_cache = block_cache;

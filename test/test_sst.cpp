@@ -133,7 +133,7 @@ TEST_F(SSTTest, ReopenSST) {
                                                   LSMmm_BLOCK_CACHE_K);
 
   // 重新打开SST
-  FileObj file = FileObj::open("test_data/test.sst");
+  FileObj file = FileObj::open("test_data/test.sst", false);
   auto reopened_sst = SST::open(1, std::move(file), block_cache);
 
   // 验证数据一致性

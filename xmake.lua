@@ -52,6 +52,13 @@ target("lsm")
     add_files("src/lsm/*.cpp")
     add_includedirs("include", {public = true})
 
+target("wal")
+    set_kind("static")  -- 生成静态库
+    add_deps("sst", "memtable")
+    add_files("src/wal/*.cpp")
+    add_includedirs("include", {public = true})
+
+
 target("redis")
     set_kind("static")  -- 生成静态库
     add_deps("lsm")
@@ -139,6 +146,13 @@ target("test_redis")
     set_kind("binary")
     add_files("test/test_redis.cpp")
     add_deps("redis", "memtable", "iterator")  -- Added memtable and iterator dependencies
+    add_includedirs("include")
+    add_packages("gtest")
+
+target("test_wal")
+    set_kind("binary")
+    add_files("test/test_wal.cpp")
+    add_deps("wal")  -- Added memtable and iterator dependencies
     add_includedirs("include")
     add_packages("gtest")
 

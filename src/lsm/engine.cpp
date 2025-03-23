@@ -63,7 +63,7 @@ LSMEngine::LSMEngine(std::string path) : data_dir(path) {
           std::max(sst_id, cur_max_sst_id); // 记录目前最大的 sst_id
       cur_max_level = std::max(level, cur_max_level); // 记录目前最大的 level
       std::string sst_path = get_sst_path(sst_id, level);
-      auto sst = SST::open(sst_id, FileObj::open(sst_path), block_cache);
+      auto sst = SST::open(sst_id, FileObj::open(sst_path, false), block_cache);
       ssts[sst_id] = sst;
 
       // 所有加载的SST都属于L0层

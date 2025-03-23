@@ -17,7 +17,10 @@ bool StdFile::create(const std::string &filename, std::vector<uint8_t> &buf) {
   if (!this->open(filename, true)) {
     throw std::runtime_error("Failed to open file for writing");
   }
-  write(0, buf.data(), buf.size());
+  if (!buf.empty()) {
+    write(0, buf.data(), buf.size());
+  }
+
   return true;
 }
 

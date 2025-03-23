@@ -232,60 +232,39 @@ Block::get_monotony_predicate_iters(
   // 第一次二分查找，找到第一个满足谓词的位置
   int left = 0;
   int right = offsets.size() - 1;
-  int first = -1;
-  int first_first = -1; // 第一次找到的位置, 不一定是区间的首尾
+  int first=-1;
 
   while (left <= right) {
     int mid = left + (right - left) / 2;
     size_t mid_offset = offsets[mid];
-
     auto mid_key = get_key_at(mid_offset);
     int direction = predicate(mid_key);
-    if (direction < 0) {
-      // 目标在 mid 左侧
+    if (direction <= 0) {// 目标在 mid 左侧
       right = mid - 1;
-    } else if (direction > 0) {
-      // 目标在 mid 右侧
+    } else //目标在mid右侧
       left = mid + 1;
-    } else {
-      first = mid;
-      if (first_first == -1) {
-        first_first = mid;
-      }
-      // 继续判断左边是否符合
-      right = mid - 1;
-    }
   }
 
-  if (first == -1) {
+  if (left == -1) {
     return std::nullopt; // 没有找到满足谓词的元素
   }
+  first=left;  //保留下找到的第一个的位置
 
   // 第二次二分查找，找到最后一个满足谓词的位置
-  left = first_first;
+  int last=-1;
   right = offsets.size() - 1;
-  int last = -1;
-
   while (left <= right) {
     int mid = left + (right - left) / 2;
     size_t mid_offset = offsets[mid];
-
     auto mid_key = get_key_at(mid_offset);
     int direction = predicate(mid_key);
-
     if (direction < 0) {
-      // 目标在 mid 左侧
       right = mid - 1;
-    } else if (direction > 0) {
-      // 目标在 mid 右侧
-      throw std::runtime_error("block is not sorted");
-    } else {
-      last = mid;
-      // 继续判断右边是否符合
+    } else 
       left = mid + 1;
-    }
   }
-
+  last=left-1;
+  // 最后进行组合
   auto it_begin = std::make_shared<BlockIterator>(shared_from_this(), first);
   auto it_end = std::make_shared<BlockIterator>(shared_from_this(), last + 1);
 

@@ -44,7 +44,7 @@ bool TwoMergeIterator::operator==(const BaseIterator &other) const {
   if (this->is_end() && other2.is_end()) {
     return true;
   }
-  if (this->is_end() && other2.is_end()) {
+  if (this->is_end() || other2.is_end()) {
     return false;
   }
   return it_a == other2.it_a && it_b == other2.it_b &&

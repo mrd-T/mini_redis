@@ -12,14 +12,14 @@ TEST(MemTableTest, BasicOperations) {
 
   // 测试插入和查找
   memtable.put("key1", "value1", 0);
-  EXPECT_EQ(memtable.get("key1", 0).value(), "value1");
+  EXPECT_EQ(memtable.get("key1", 0).get_value(), "value1");
 
   // 测试更新
   memtable.put("key1", "new_value", 0);
-  EXPECT_EQ(memtable.get("key1", 0).value(), "new_value");
+  EXPECT_EQ(memtable.get("key1", 0).get_value(), "new_value");
 
   // 测试不存在的key
-  EXPECT_FALSE(memtable.get("nonexistent", 0).has_value());
+  EXPECT_FALSE(memtable.get("nonexistent", 0).is_valid());
 }
 
 // 测试删除操作
@@ -29,11 +29,11 @@ TEST(MemTableTest, RemoveOperations) {
   // 插入并删除
   memtable.put("key1", "value1", 0);
   memtable.remove("key1", 0);
-  EXPECT_TRUE(memtable.get("key1", 0).value().empty());
+  EXPECT_TRUE(memtable.get("key1", 0).get_value().empty());
 
   // 删除不存在的key
   memtable.remove("nonexistent", 0);
-  EXPECT_TRUE(memtable.get("nonexistent", 0).value().empty());
+  EXPECT_TRUE(memtable.get("nonexistent", 0).get_value().empty());
 }
 
 // 测试冻结表操作
@@ -51,9 +51,9 @@ TEST(MemTableTest, FrozenTableOperations) {
   memtable.put("key3", "value3", 0);
 
   // 验证所有数据都能被访问到
-  EXPECT_EQ(memtable.get("key1", 0).value(), "value1");
-  EXPECT_EQ(memtable.get("key2", 0).value(), "value2");
-  EXPECT_EQ(memtable.get("key3", 0).value(), "value3");
+  EXPECT_EQ(memtable.get("key1", 0).get_value(), "value1");
+  EXPECT_EQ(memtable.get("key2", 0).get_value(), "value2");
+  EXPECT_EQ(memtable.get("key3", 0).get_value(), "value3");
 }
 
 // 测试大量数据操作
@@ -72,7 +72,7 @@ TEST(MemTableTest, LargeScaleOperations) {
   for (int i = 0; i < num_entries; i++) {
     std::string key = "key" + std::to_string(i);
     std::string expected = "value" + std::to_string(i);
-    EXPECT_EQ(memtable.get(key, 0).value(), expected);
+    EXPECT_EQ(memtable.get(key, 0).get_value(), expected);
   }
 }
 
@@ -109,9 +109,9 @@ TEST(MemTableTest, MultipleFrozenTables) {
   memtable.put("key3", "value3", 0);
 
   // 验证所有数据都能访问
-  EXPECT_EQ(memtable.get("key1", 0).value(), "value1");
-  EXPECT_EQ(memtable.get("key2", 0).value(), "value2");
-  EXPECT_EQ(memtable.get("key3", 0).value(), "value3");
+  EXPECT_EQ(memtable.get("key1", 0).get_value(), "value1");
+  EXPECT_EQ(memtable.get("key2", 0).get_value(), "value2");
+  EXPECT_EQ(memtable.get("key3", 0).get_value(), "value3");
 }
 
 // 测试迭代器在复杂操作序列下的行为
@@ -185,7 +185,7 @@ TEST(MemTableTest, IteratorComplexOperations) {
   // 验证被删除的key确实不存在
   bool has_key3 = false;
   auto res = memtable.get("key3", 0);
-  EXPECT_TRUE(res.value().empty());
+  EXPECT_TRUE(res.get_value().empty());
 }
 
 TEST(MemTableTest, ConcurrentOperations) {
@@ -256,7 +256,7 @@ TEST(MemTableTest, ConcurrentOperations) {
 
       if (!key_to_find.empty()) {
         auto result = memtable.get(key_to_find, 0);
-        if (result.has_value()) {
+        if (result.is_valid()) {
           found_count++;
         }
       }

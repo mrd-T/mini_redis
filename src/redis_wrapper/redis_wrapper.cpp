@@ -218,7 +218,7 @@ bool RedisWrapper::expire_zset_clean(
     lsm->remove(expire_key);
     auto preffix = get_zset_key_preffix(key);
     auto result_elem = this->lsm->lsm_iters_monotony_predicate(
-        [&preffix](const std::string &elem) {
+        0, [&preffix](const std::string &elem) {
           return -elem.compare(0, preffix.size(), preffix);
         });
     if (result_elem.has_value()) {
@@ -247,7 +247,7 @@ bool RedisWrapper::expire_set_clean(
     lsm->remove(expire_key);
     auto preffix = get_set_key_preffix(key);
     auto result_elem = this->lsm->lsm_iters_monotony_predicate(
-        [&preffix](const std::string &elem) {
+        0, [&preffix](const std::string &elem) {
           return -elem.compare(0, preffix.size(), preffix);
         });
     if (result_elem.has_value()) {
@@ -937,7 +937,7 @@ std::string RedisWrapper::redis_zrange(std::vector<std::string> &args) {
   // 范围查询: 按照 score 查询就能满足 zrange 的顺序
   std::string preffix_score = get_zset_score_preffix(key);
   auto result_elem = this->lsm->lsm_iters_monotony_predicate(
-      [&preffix_score](const std::string &elem) {
+      0, [&preffix_score](const std::string &elem) {
         return -elem.compare(0, preffix_score.size(), preffix_score);
       });
 
@@ -985,7 +985,7 @@ std::string RedisWrapper::redis_zcard(const std::string &key) {
   // key_score 和 key_elem 是一对, 所以只需要一个即可
   std::string preffix = get_zset_score_preffix(key);
   auto result_elem = this->lsm->lsm_iters_monotony_predicate(
-      [&preffix](const std::string &elem) {
+      0, [&preffix](const std::string &elem) {
         return -elem.compare(0, preffix.size(), preffix);
       });
 
@@ -1080,7 +1080,7 @@ std::string RedisWrapper::redis_zrank(const std::string &key,
   // 获取有序集合的前缀
   std::string preffix_score = get_zset_key_preffix(key);
   auto result_elem = this->lsm->lsm_iters_monotony_predicate(
-      [&preffix_score](const std::string &elem) {
+      0, [&preffix_score](const std::string &elem) {
         return -elem.compare(0, preffix_score.size(), preffix_score);
       });
 
@@ -1217,7 +1217,7 @@ std::string RedisWrapper::redis_smembers(const std::string &key) {
 
   std::string prefix = get_set_member_prefix(key);
   auto result_elem = this->lsm->lsm_iters_monotony_predicate(
-      [&prefix](const std::string &elem) {
+      0, [&prefix](const std::string &elem) {
         return -elem.compare(0, prefix.size(), prefix);
       });
 

@@ -79,19 +79,17 @@ LSMEngine::LSMEngine(std::string path) : data_dir(path) {
   }
 }
 
-LSMEngine::~LSMEngine() {
-  // 需要将所有内存表写入磁盘
-  flush_all();
-}
+LSMEngine::~LSMEngine() = default;
 
-std::optional<std::string> LSMEngine::get(const std::string &key,
-                                          uint64_t tranc_id) {
+std::optional<std::pair<std::string, uint64_t>>
+LSMEngine::get(const std::string &key, uint64_t tranc_id) {
   // 1. 先查找 memtable
-  auto value = memtable.get(key, tranc_id);
-  if (value.has_value()) {
-    if (value.value().size() > 0) {
+  auto mem_res = memtable.get(key, tranc_id);
+  if (mem_res.is_valid()) {
+    if (mem_res.get_value().size() > 0) {
       // 值存在且不为空（没有被删除）
-      return value;
+      return std::pair<std::string, uint64_t>{mem_res.get_value(),
+                                              mem_res.get_tranc_id()};
     } else {
       // memtable返回的kv的value为空值表示被删除了
       return std::nullopt;
@@ -109,7 +107,8 @@ std::optional<std::string> LSMEngine::get(const std::string &key,
     if (sst_iterator != sst->end()) {
       if ((sst_iterator)->second.size() > 0) {
         // 值存在且不为空（没有被删除）
-        return sst_iterator->second;
+        return std::pair<std::string, uint64_t>{sst_iterator->second,
+                                                sst_iterator.get_tranc_id()};
       } else {
         // 空值表示被删除了
         return std::nullopt;
@@ -132,7 +131,8 @@ std::optional<std::string> LSMEngine::get(const std::string &key,
         if (sst_iterator.is_valid()) {
           if ((sst_iterator)->second.size() > 0) {
             // 值存在且不为空（没有被删除）
-            return sst_iterator->second;
+            return std::pair<std::string, uint64_t>{
+                sst_iterator->second, sst_iterator.get_tranc_id()};
           } else {
             // 空值表示被删除了
             return std::nullopt;
@@ -151,33 +151,101 @@ std::optional<std::string> LSMEngine::get(const std::string &key,
   return std::nullopt;
 }
 
-void LSMEngine::put(const std::string &key, const std::string &value,
-                    uint64_t tranc_id) {
+std::optional<std::pair<std::string, uint64_t>>
+LSMEngine::sst_get_(const std::string &key, uint64_t tranc_id) {
+
+  // 1. l0 sst中查询
+  for (auto &sst_id : level_sst_ids[0]) {
+    //  中的 sst_id 是按从大到小的顺序排列,
+    // sst_id 越大, 表示是越晚刷入的, 优先查询
+    auto sst = ssts[sst_id];
+    auto sst_iterator = sst->get(key, tranc_id);
+    if (sst_iterator != sst->end()) {
+      if ((sst_iterator)->second.size() > 0) {
+        // 值存在且不为空（没有被删除）
+        return std::pair<std::string, uint64_t>{sst_iterator->second,
+                                                sst_iterator.get_tranc_id()};
+      } else {
+        // 空值表示被删除了
+        return std::nullopt;
+      }
+    }
+  }
+
+  // 2. 其他level的sst中查询
+  for (size_t level = 1; level <= cur_max_level; level++) {
+    std::deque<size_t> l_sst_ids = level_sst_ids[level];
+    // 二分查询
+    size_t left = 0;
+    size_t right = l_sst_ids.size();
+    while (left < right) {
+      size_t mid = left + (right - left) / 2;
+      auto sst = ssts[l_sst_ids[mid]];
+      if (sst->get_first_key() <= key && key <= sst->get_last_key()) {
+        // 如果sst_id在中, 则在sst中查询
+        auto sst_iterator = sst->get(key, tranc_id);
+        if (sst_iterator.is_valid()) {
+          if ((sst_iterator)->second.size() > 0) {
+            // 值存在且不为空（没有被删除）
+            return std::pair<std::string, uint64_t>{
+                sst_iterator->second, sst_iterator.get_tranc_id()};
+          } else {
+            // 空值表示被删除了
+            return std::nullopt;
+          }
+        } else {
+          break;
+        }
+      } else if (sst->get_last_key() < key) {
+        left = mid + 1;
+      } else {
+        right = mid;
+      }
+    }
+  }
+
+  return std::nullopt;
+}
+
+uint64_t LSMEngine::put(const std::string &key, const std::string &value,
+                        uint64_t tranc_id) {
   memtable.put(key, value, tranc_id);
 
   // 如果 memtable 太大，需要刷新到磁盘
   if (memtable.get_total_size() >= LSM_TOL_MEM_SIZE_LIMIT) {
-    flush();
+    return flush();
   }
+  return 0;
 }
 
-void LSMEngine::put_batch(
+uint64_t LSMEngine::put_batch(
     const std::vector<std::pair<std::string, std::string>> &kvs,
     uint64_t tranc_id) {
   memtable.put_batch(kvs, tranc_id);
   // 如果 memtable 太大，需要刷新到磁盘
   if (memtable.get_total_size() >= LSM_TOL_MEM_SIZE_LIMIT) {
-    flush();
+    return flush();
   }
+  return 0;
 }
-void LSMEngine::remove(const std::string &key, uint64_t tranc_id) {
+uint64_t LSMEngine::remove(const std::string &key, uint64_t tranc_id) {
   // 在 LSM 中，删除实际上是插入一个空值
   memtable.remove(key, tranc_id);
+  // 如果 memtable 太大，需要刷新到磁盘
+  if (memtable.get_total_size() >= LSM_TOL_MEM_SIZE_LIMIT) {
+    return flush();
+  }
+  return 0;
 }
 
-void LSMEngine::remove_batch(const std::vector<std::string> &keys,
-                             uint64_t tranc_id) {
+uint64_t LSMEngine::remove_batch(const std::vector<std::string> &keys,
+                                 uint64_t tranc_id) {
   memtable.remove_batch(keys, tranc_id);
+  // 如果 memtable 太大，需要刷新到磁盘
+  if (memtable.get_total_size() >= LSM_TOL_MEM_SIZE_LIMIT) {
+    return flush();
+  }
+  return 0;
 }
 
 void LSMEngine::clear() {
@@ -193,9 +261,9 @@ void LSMEngine::clear() {
   }
 }
 
-void LSMEngine::flush() {
+uint64_t LSMEngine::flush() {
   if (memtable.get_total_size() == 0) {
-    return;
+    return 0;
   }
 
   std::unique_lock<std::shared_mutex> lock(ssts_mtx); // 写锁
@@ -223,12 +291,9 @@ void LSMEngine::flush() {
 
   // 6. 更新 sst_ids
   level_sst_ids[0].push_front(new_sst_id);
-}
 
-void LSMEngine::flush_all() {
-  while (memtable.get_total_size() > 0) {
-    flush();
-  }
+  // 返回新刷入的 sst 的最大的 tranc_id
+  return new_sst->get_tranc_id_range().second;
 }
 
 std::string LSMEngine::get_sst_path(size_t sst_id, size_t target_level) {
@@ -467,13 +532,33 @@ LSM::LSM(std::string path)
     : engine(std::make_shared<LSMEngine>(path)),
       tran_manager_(std::make_shared<TranManager>(path)) {
   tran_manager_->set_engine(engine);
+  auto check_recover_res = tran_manager_->check_recover();
+  for (auto &[tranc_id, records] : check_recover_res) {
+    tran_manager_->update_max_finished_tranc_id(tranc_id);
+    for (auto &record : records) {
+      if (record.getOperationType() == OperationType::PUT) {
+        engine->put(record.getKey(), record.getValue(), tranc_id);
+      } else if (record.getOperationType() == OperationType::DELETE) {
+        engine->remove(record.getKey(), tranc_id);
+      }
+    }
+  }
+  tran_manager_->init_new_wal();
 }
 
-LSM::~LSM() = default;
+LSM::~LSM() {
+  flush_all();
+  tran_manager_->write_tranc_id_file();
+}
 
 std::optional<std::string> LSM::get(const std::string &key) {
   auto tranc_id = tran_manager_->getNextTransactionId();
-  return engine->get(key, tranc_id);
+  auto res = engine->get(key, tranc_id);
+
+  if (res.has_value()) {
+    return res.value().first;
+  }
+  return std::nullopt;
 }
 
 void LSM::put(const std::string &key, const std::string &value) {
@@ -498,9 +583,14 @@ void LSM::remove_batch(const std::vector<std::string> &keys) {
 
 void LSM::clear() { engine->clear(); }
 
-void LSM::flush() { engine->flush(); }
+void LSM::flush() { auto max_tranc_id = engine->flush(); }
 
-void LSM::flush_all() { engine->flush_all(); }
+void LSM::flush_all() {
+  while (engine->memtable.get_total_size() > 0) {
+    auto max_tranc_id = engine->flush();
+    tran_manager_->update_max_flushed_tranc_id(max_tranc_id);
+  }
+}
 
 LSM::LSMIterator LSM::begin(uint64_t tranc_id) {
   return engine->begin(tranc_id);

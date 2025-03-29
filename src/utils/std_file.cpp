@@ -48,7 +48,7 @@ std::vector<uint8_t> StdFile::read(size_t offset, size_t length) {
 bool StdFile::write(size_t offset, const void *data, size_t size) {
   file_.seekg(offset, std::ios::beg);
   file_.write(static_cast<const char *>(data), size);
-  this->sync();
+  // this->sync();
   return true;
 }
 

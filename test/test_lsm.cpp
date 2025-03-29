@@ -28,25 +28,25 @@ protected:
   std::string test_dir;
 };
 
-// // Test basic operations: put, get, remove
-// TEST_F(LSMTest, BasicOperations) {
-//   LSM lsm(test_dir);
+// Test basic operations: put, get, remove
+TEST_F(LSMTest, BasicOperations) {
+  LSM lsm(test_dir);
 
-//   // Test put and get
-//   lsm.put("key1", "value1");
-//   EXPECT_EQ(lsm.get("key1").value(), "value1");
+  // Test put and get
+  lsm.put("key1", "value1");
+  EXPECT_EQ(lsm.get("key1").value(), "value1");
 
-//   // Test update
-//   lsm.put("key1", "new_value");
-//   EXPECT_EQ(lsm.get("key1").value(), "new_value");
+  // Test update
+  lsm.put("key1", "new_value");
+  EXPECT_EQ(lsm.get("key1").value(), "new_value");
 
-//   // Test remove
-//   lsm.remove("key1");
-//   EXPECT_FALSE(lsm.get("key1").has_value());
+  // Test remove
+  lsm.remove("key1");
+  EXPECT_FALSE(lsm.get("key1").has_value());
 
-//   // Test non-existent key
-//   EXPECT_FALSE(lsm.get("nonexistent").has_value());
-// }
+  // Test non-existent key
+  EXPECT_FALSE(lsm.get("nonexistent").has_value());
+}
 
 // Test persistence across restarts
 TEST_F(LSMTest, Persistence) {
@@ -183,7 +183,8 @@ TEST_F(LSMTest, MonotonyPredicate) {
 
   // Define a predicate function
   auto predicate = [](const std::string &key) -> int {
-    int key_num = std::stoi(key.substr(3)); // Extract the number from the key
+    // Extract the number from the key
+    int key_num = std::stoi(key.substr(3));
     if (key_num < 20) {
       return 1;
     }
@@ -230,7 +231,7 @@ TEST_F(LSMTest, TrancIdTest) {
     std::string key = oss_key.str();
     lsm.put(key, "tranc1", 1);
   }
-  lsm.flush_all();
+  lsm.flush();
 
   // key10-key10 再插入, 此时事务id为2
   for (int i = 0; i < 10; i++) {
@@ -248,7 +249,7 @@ TEST_F(LSMTest, TrancIdTest) {
 
     auto res = lsm.get(key, 1);
 
-    EXPECT_EQ(res.value(), "tranc1");
+    EXPECT_EQ(res.value().first, "tranc1");
   }
 
   // 在事务id为2时进行遍历, 事务id为2的记录现在是可见的了
@@ -259,9 +260,76 @@ TEST_F(LSMTest, TrancIdTest) {
 
     auto res = lsm.get(key, 2);
     if (i < 10) {
-      EXPECT_EQ(res.value(), "tranc2");
+      EXPECT_EQ(res.value().first, "tranc2");
     } else {
-      EXPECT_EQ(res.value(), "tranc1");
+      EXPECT_EQ(res.value().first, "tranc1");
+    }
+  }
+}
+
+TEST_F(LSMTest, TranContextTest) {
+  LSM lsm(test_dir);
+  auto tran_ctx = lsm.begin_tran();
+
+  tran_ctx->put("key1", "value1");
+  tran_ctx->put("key2", "value2");
+
+  auto query = lsm.get("key1");
+  // 事务还没有提交, 应该查不到数据
+  EXPECT_FALSE(query.has_value());
+
+  auto commit_res = tran_ctx->commit();
+  EXPECT_TRUE(commit_res);
+
+  // 事务已经提交, 应该可以查到数据
+  query = lsm.get("key1");
+  EXPECT_EQ(query.value(), "value1");
+  query = lsm.get("key2");
+  EXPECT_EQ(query.value(), "value2");
+
+  auto tran_ctx2 = lsm.begin_tran();
+  tran_ctx2->put("key1", "value1");
+  tran_ctx2->put("key2", "value2");
+
+  lsm.put("key2", "value22");
+
+  commit_res = tran_ctx2->commit();
+  EXPECT_FALSE(commit_res);
+}
+
+TEST_F(LSMTest, Recover) {
+  {
+    LSM lsm(test_dir);
+
+    lsm.put("xxx  ", "yyy");
+    auto tran_ctx = lsm.begin_tran();
+
+    for (int i = 0; i < 100; i++) {
+      std::ostringstream oss_key;
+      std::ostringstream oss_value;
+      oss_key << "key" << std::setw(2) << std::setfill('0') << i;
+      oss_value << "value" << std::setw(2) << std::setfill('0') << i;
+      std::string key = oss_key.str();
+      std::string value = oss_value.str();
+
+      tran_ctx->put(key, value);
+    }
+
+    // 提交事务时true表示不会真正写入
+    tran_ctx->commit(true);
+  }
+  {
+    LSM lsm(test_dir);
+
+    for (int i = 0; i < 100; i++) {
+      std::ostringstream oss_key;
+      std::ostringstream oss_value;
+      oss_key << "key" << std::setw(2) << std::setfill('0') << i;
+      oss_value << "value" << std::setw(2) << std::setfill('0') << i;
+      std::string key = oss_key.str();
+      std::string value = oss_value.str();
+
+      EXPECT_EQ(lsm.get(key).value(), value);
     }
   }
 }

@@ -35,7 +35,9 @@ IteratorType SkipListIterator::get_type() const {
   return IteratorType::SkipListIterator;
 }
 
-bool SkipListIterator::is_valid() const { return !current->value_.empty(); }
+bool SkipListIterator::is_valid() const {
+  return current && !current->key_.empty();
+}
 bool SkipListIterator::is_end() const { return current == nullptr; }
 
 std::string SkipListIterator::get_key() const { return current->key_; }
@@ -136,8 +138,7 @@ void SkipList::put(const std::string &key, const std::string &value,
 }
 
 // 查找键值对
-std::optional<std::tuple<std::string, std::string, uint64_t>>
-SkipList::get(const std::string &key, uint64_t tranc_id) {
+SkipListIterator SkipList::get(const std::string &key, uint64_t tranc_id) {
   // std::shared_lock<std::shared_mutex> slock(rw_mutex);
 
   auto current = head;
@@ -153,8 +154,7 @@ SkipList::get(const std::string &key, uint64_t tranc_id) {
     // 如果没有开启事务，直接比较key即可
     // 如果找到匹配的key，返回value
     if (current && current->key_ == key) {
-      return std::tuple<std::string, std::string, uint64_t>{
-          current->key_, current->value_, current->tranc_id_};
+      return SkipListIterator{current};
     }
   } else {
     while (current && current->key_ == key) {
@@ -162,21 +162,20 @@ SkipList::get(const std::string &key, uint64_t tranc_id) {
       if (tranc_id != 0) {
         if (current->tranc_id_ <= tranc_id) {
           // 满足事务可见性
-          return std::tuple<std::string, std::string, uint64_t>{
-              current->key_, current->value_, current->tranc_id_};
+          return SkipListIterator{current};
+
         } else {
           // 否则跳过
           current = current->forward_[0];
         }
       } else {
         // 没有开启事务
-        return std::tuple<std::string, std::string, uint64_t>{
-            current->key_, current->value_, current->tranc_id_};
+        return SkipListIterator{current};
       }
     }
   }
   // 未找到返回空
-  return std::nullopt;
+  return SkipListIterator{};
 }
 
 // 删除键值对

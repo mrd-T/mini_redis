@@ -35,7 +35,7 @@ WAL::~WAL() {
 }
 
 std::map<uint64_t, std::vector<Record>>
-WAL::recover(const std::string &log_dir, uint64_t max_finished_tranc_id) {
+WAL::recover(const std::string &log_dir, uint64_t max_flushed_tranc_id) {
   std::map<uint64_t, std::vector<Record>> tranc_records{};
 
   // 引擎启动时判断
@@ -46,8 +46,13 @@ WAL::recover(const std::string &log_dir, uint64_t max_finished_tranc_id) {
   // 遍历log_dir下的所有文件
   std::vector<std::string> wal_paths;
   for (const auto &entry : std::filesystem::directory_iterator(log_dir)) {
-    if (entry.is_regular_file() &&
-        entry.path().filename().string().substr(0, 4) == "wal.") {
+    if (entry.is_regular_file()) {
+      // 获取/符号后的文件名
+      std::string filename = entry.path().filename().string();
+      if (filename.substr(0, 4) != "wal.") {
+        continue;
+      }
+
       wal_paths.push_back(entry.path().string());
     }
   }
@@ -66,7 +71,7 @@ WAL::recover(const std::string &log_dir, uint64_t max_finished_tranc_id) {
     auto wal_records_slice = wal_file.read_to_slice(0, wal_file.size());
     auto records = Record::decode(wal_records_slice);
     for (const auto &record : records) {
-      if (record.getTrancId() > max_finished_tranc_id) {
+      if (record.getTrancId() > max_flushed_tranc_id) {
         // 如果记录的 tranc_id 大于 max_finished_tranc_id, 才需要尝试恢复
         tranc_records[record.getTrancId()].push_back(record);
       }
@@ -148,12 +153,9 @@ void WAL::cleanWALFile() {
 
   for (const auto &entry : std::filesystem::directory_iterator(dir_path)) {
     if (entry.is_regular_file() &&
-        entry.path().filename().string().substr(0, 4) != "wal.") {
+        entry.path().filename().string().substr(0, 4) == "wal.") {
       std::string filename = entry.path().filename().string();
       size_t dot_pos = filename.find_last_of(".");
-      if (dot_pos != std::string::npos) {
-        throw std::invalid_argument("Invalid filename format");
-      }
       std::string seq_str = filename.substr(dot_pos + 1);
       uint64_t seq = std::stoull(seq_str);
       wal_paths.push_back({seq, entry.path().string()});
@@ -208,6 +210,7 @@ void WAL::reset_file() {
                      std::to_string(seq);
 
   // 创建新的文件
-  log_file_.~FileObj();
+  // ? 如果不注释下面这行, debug 模式下 test_wal 能通过但 release 模式下报错
+  // log_file_.~FileObj();
   log_file_ = FileObj::create_and_write(active_log_path_, {});
 }

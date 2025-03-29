@@ -1,21 +1,25 @@
 #include "../../include/lsm/engine.h"
 #include "../../include/lsm/transaction.h"
 #include "../../include/utils/files.h"
+#include <algorithm>
 #include <cerrno>
 #include <cstdint>
 #include <cstring>
 #include <filesystem>
 #include <iostream>
 #include <mutex>
+#include <thread>
 #include <vector>
 
 // *********************** TranContext ***********************
 TranContext::TranContext(uint64_t tranc_id, std::shared_ptr<LSMEngine> engine,
                          std::shared_ptr<TranManager> tranManager)
-    : tranc_id_(tranc_id), engine_(engine), tranManager_(tranManager) {}
+    : tranc_id_(tranc_id), engine_(engine), tranManager_(tranManager) {
+  operations.emplace_back(Record::createRecord(tranc_id_));
+}
 
 void TranContext::put(const std::string &key, const std::string &value) {
-  operations.emplace_back(Record::createRecord(this->tranc_id_));
+  operations.emplace_back(Record::putRecord(this->tranc_id_, key, value));
   temp_map_[key] = value;
 }
 
@@ -30,17 +34,75 @@ std::optional<std::string> TranContext::get(const std::string &key) {
     return temp_map_[key];
   }
   // 否则使用 engine 查询
-  return engine_->get(key, this->tranc_id_);
+  auto query = engine_->get(key, this->tranc_id_);
+  return query->first;
 }
 
-bool TranContext::commit() {
+bool TranContext::commit(bool test_fail) {
   // commit 需要检查所有的操作是否合法
 
   // 遍历所有的记录, 判断是否合法
 
+  // TODO: 目前为检查冲突, 全局获取了读锁, 后续考虑性能优化方案
+
+  MemTable &memtable = engine_->memtable;
+  std::unique_lock<std::shared_mutex> rlock1(memtable.frozen_mtx);
+  std::unique_lock<std::shared_mutex> rlock2(memtable.cur_mtx);
+  std::shared_lock<std::shared_mutex> rlock3(engine_->ssts_mtx);
+
   for (auto &[k, v] : temp_map_) {
-    auto check_query = engine_->get(k, tranc_id_);
+    // 步骤1: 先在内存表中判断该 key 是否冲突
+
+    // ! 注意第二个参数设置为0, 表示忽略事务可见性的查询
+    auto res = memtable.get_(k, 0);
+    if (res.is_valid() && res.get_tranc_id() > tranc_id_) {
+      // 数据库中存在相同的 key , 且其 tranc_id 大于当前 tranc_id
+      // 表示更晚创建的事务修改了相同的key, 并先提交, 发生了冲突
+      // 需要终止事务
+      isAborted = true;
+      return false;
+    } else {
+      // 步骤2: 判断sst中是否是否存在冲突
+      if (tranManager_->get_max_flushed_tranc_id() <= tranc_id_) {
+        // sst 中最大的 tranc_id 小于当前 tranc_id, 没有冲突
+        continue;
+      }
+
+      // 否则要查询具体的key是否冲突
+      // ! 注意第二个参数设置为0, 表示忽略事务可见性的查询
+      auto res = engine_->sst_get_(k, 0);
+      if (res.has_value()) {
+        auto [v, tranc_id] = res.value();
+        if (tranc_id > tranc_id_) {
+          // 数据库中存在相同的 key , 且其 tranc_id 大于当前 tranc_id
+          // 表示更晚创建的事务修改了相同的key, 并先提交, 发生了冲突
+          // 需要终止事务
+          isAborted = true;
+          return false;
+        }
+      }
+    }
   }
+
+  // 校验全部通过, 可以刷入
+  operations.emplace_back(Record::commitRecord(this->tranc_id_));
+
+  // 先刷入wal
+  auto wal_success = tranManager_->write_to_wal(operations);
+
+  if (!wal_success) {
+    throw std::runtime_error("write to wal failed");
+  }
+
+  if (!test_fail) {
+    for (auto &[k, v] : temp_map_) {
+      memtable.put_(k, v, tranc_id_);
+    }
+  }
+
+  isCommited = true;
+  tranManager_->update_max_finished_tranc_id(tranc_id_);
+  return true;
 }
 
 // *********************** TranManager ***********************
@@ -50,29 +112,96 @@ TranManager::TranManager(std::string data_dir) : data_dir_(data_dir) {
   // 判断文件是否存在
 
   if (!std::filesystem::exists(file_path)) {
-    nextTransactionId_ = 1;
+    tranc_id_file_ = FileObj::open(file_path, true);
   } else {
-    auto tranc_id_file = FileObj::open(file_path, false);
-    nextTransactionId_ = tranc_id_file.read_uint64(0);
+    tranc_id_file_ = FileObj::open(file_path, false);
+    read_tranc_id_file();
   }
 }
 
-TranManager::~TranManager() {
-  auto file_path = get_tranc_id_file_path();
-  auto tranc_id_file = FileObj::open(file_path, true);
-  std::vector<uint8_t> buf(sizeof(uint64_t), 0);
-  uint64_t write_num = nextTransactionId_.load();
-  memcpy(buf.data(), &write_num, sizeof(uint64_t));
-  tranc_id_file.write(0, buf);
-  tranc_id_file.sync();
+void TranManager::init_new_wal() {
+  // TODO: 1 和 4096 应该统一用宏定义
+  // 先清理掉所有 wal. 开头的文件, 因为其已经被重放过了
+  for (const auto &entry : std::filesystem::directory_iterator(data_dir_)) {
+    if (entry.path().filename().string().find("wal.") == 0) {
+      std::filesystem::remove(entry.path());
+    }
+  }
+  wal = std::make_shared<WAL>(data_dir_, 128, max_finished_tranc_id_, 1, 4096);
 }
 
 void TranManager::set_engine(std::shared_ptr<LSMEngine> engine) {
   engine_ = engine;
 }
+TranManager::~TranManager() { write_tranc_id_file(); }
+
+void TranManager::write_tranc_id_file() {
+  // 共4个8字节的整型id记录
+  // std::atomic<uint64_t> nextTransactionId_;
+  // std::atomic<uint64_t> max_flushed_tranc_id_;
+  // std::atomic<uint64_t> max_finished_tranc_id_;
+
+  std::vector<uint8_t> buf(3 * sizeof(uint64_t), 0);
+  uint64_t nextTransactionId = nextTransactionId_.load();
+  uint64_t max_flushed_tranc_id = max_flushed_tranc_id_.load();
+  uint64_t max_finished_tranc_id = max_finished_tranc_id_.load();
+
+  memcpy(buf.data(), &nextTransactionId, sizeof(uint64_t));
+  memcpy(buf.data() + sizeof(uint64_t), &max_flushed_tranc_id,
+         sizeof(uint64_t));
+  memcpy(buf.data() + 2 * sizeof(uint64_t), &max_finished_tranc_id,
+         sizeof(uint64_t));
+
+  tranc_id_file_.write(0, buf);
+  tranc_id_file_.sync();
+}
+
+void TranManager::read_tranc_id_file() {
+  nextTransactionId_ = tranc_id_file_.read_uint64(0);
+  max_flushed_tranc_id_ = tranc_id_file_.read_uint64(sizeof(uint64_t));
+  max_finished_tranc_id_ = tranc_id_file_.read_uint64(sizeof(uint64_t) * 2);
+}
+
+void TranManager::update_max_finished_tranc_id(uint64_t tranc_id) {
+  // max_finished_tranc_id_ 对于崩溃恢复没有作用,
+  // 因为可能其标记的事务的更改还没有刷盘 因此只需要在内存中更改即可,
+  // 没有必要刷盘
+  uint64_t expected = max_finished_tranc_id_.load(std::memory_order_relaxed);
+  while (tranc_id > expected) {
+    if (max_finished_tranc_id_.compare_exchange_weak(
+            expected, tranc_id, std::memory_order_acq_rel)) {
+      break;
+    }
+    // 重新加载最新值
+    expected = max_finished_tranc_id_.load(std::memory_order_relaxed);
+  }
+}
+
+void TranManager::update_max_flushed_tranc_id(uint64_t tranc_id) {
+  // ! max_finished_tranc_id_ 对于崩溃恢复有决定性的作用
+  // ! 需要立即刷盘
+  uint64_t expected = max_flushed_tranc_id_.load(std::memory_order_relaxed);
+  while (tranc_id > expected) {
+    if (max_flushed_tranc_id_.compare_exchange_weak(
+            expected, tranc_id, std::memory_order_acq_rel)) {
+      break;
+    }
+    // 重新加载最新值
+    expected = max_flushed_tranc_id_.load(std::memory_order_relaxed);
+  }
+  write_tranc_id_file();
+}
 
 uint64_t TranManager::getNextTransactionId() {
   return nextTransactionId_.fetch_add(1, std::memory_order_relaxed);
+}
+
+uint64_t TranManager::get_max_flushed_tranc_id() {
+  return max_flushed_tranc_id_.load();
+}
+
+uint64_t TranManager::get_max_finished_tranc_id_() {
+  return max_finished_tranc_id_.load();
 }
 
 std::shared_ptr<TranContext> TranManager::new_tranc() {
@@ -90,3 +219,26 @@ std::string TranManager::get_tranc_id_file_path() {
   }
   return data_dir_ + "/tranc_id";
 }
+
+std::map<uint64_t, std::vector<Record>> TranManager::check_recover() {
+  std::map<uint64_t, std::vector<Record>> wal_records =
+      WAL::recover(data_dir_, max_flushed_tranc_id_);
+  return wal_records;
+}
+
+bool TranManager::write_to_wal(const std::vector<Record> &records) {
+  try {
+    wal->log(records, true);
+  } catch (const std::exception &e) {
+    return false;
+  }
+
+  return true;
+}
+
+// void TranManager::flusher() {
+//   while (flush_thread_running_.load()) {
+//     std::this_thread::sleep_for(std::chrono::seconds(1));
+//     write_tranc_id_file();
+//   }
+// }

@@ -3,11 +3,13 @@
 #include "../../include/iterator/iterator.h"
 #include "../../include/skiplist/skiplist.h"
 #include "../../include/sst/sst.h"
+#include <algorithm>
 #include <cstddef>
 #include <memory>
 #include <mutex>
 #include <optional>
 #include <shared_mutex>
+#include <sys/types.h>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -50,50 +52,61 @@ void MemTable::put_batch(
   }
 }
 
-std::optional<std::tuple<std::string, std::string, uint64_t>>
-MemTable::cur_get_(const std::string &key, uint64_t tranc_id) {
+SkipListIterator MemTable::cur_get_(const std::string &key, uint64_t tranc_id) {
   // 检查当前活跃的memtable
   auto result = current_table->get(key, tranc_id);
-  if (result.has_value()) {
-    auto data = result.value();
+  if (result.is_valid()) {
     // 只要找到了 key, 不管 value 是否为空都返回
-    return data;
+    return result;
   }
 
   // 没有找到，返回空
-  return std::nullopt;
+  return SkipListIterator{};
 }
 
-std::optional<std::tuple<std::string, std::string, uint64_t>>
-MemTable::frozen_get_(const std::string &key, uint64_t tranc_id) {
+SkipListIterator MemTable::frozen_get_(const std::string &key,
+                                       uint64_t tranc_id) {
   // 检查frozen memtable
   for (auto &tabe : frozen_tables) {
     auto result = tabe->get(key, tranc_id);
-    if (result.has_value()) {
+    if (result.is_valid()) {
       return result;
     }
   }
 
   // 都没有找到，返回空
-  return std::nullopt;
+  return SkipListIterator{};
 }
 
-std::optional<std::string> MemTable::get(const std::string &key,
-                                         uint64_t tranc_id) {
+SkipListIterator MemTable::get(const std::string &key, uint64_t tranc_id) {
   // 先获取当前活跃表的锁
   std::shared_lock<std::shared_mutex> slock1(cur_mtx);
   auto cur_res = cur_get_(key, tranc_id);
-  if (cur_res.has_value()) {
-    return std::get<1>((cur_res.value()));
+  if (cur_res.is_valid()) {
+    return cur_res;
   }
   // 活跃表没有找到，再获取冻结表的锁
   slock1.unlock();
   std::shared_lock<std::shared_mutex> slock2(frozen_mtx);
   auto frozen_result = frozen_get_(key, tranc_id);
-  if (frozen_result.has_value()) {
-    return std::get<1>((frozen_result.value()));
+  if (frozen_result.is_valid()) {
+    return frozen_result;
   }
-  return std::nullopt;
+  return SkipListIterator{};
+}
+
+SkipListIterator MemTable::get_(const std::string &key, uint64_t tranc_id) {
+
+  auto cur_res = cur_get_(key, tranc_id);
+  if (cur_res.is_valid()) {
+    return cur_res;
+  }
+
+  auto frozen_result = frozen_get_(key, tranc_id);
+  if (frozen_result.is_valid()) {
+    return frozen_result;
+  }
+  return SkipListIterator{};
 }
 
 void MemTable::remove_(const std::string &key, uint64_t tranc_id) {
@@ -139,6 +152,9 @@ MemTable::flush_last(SSTBuilder &builder, std::string &sst_path, size_t sst_id,
   // 由于 flush 后需要移除最老的 memtable, 因此需要加写锁
   std::unique_lock<std::shared_mutex> lock(frozen_mtx);
 
+  uint64_t max_tranc_id = 0;
+  uint64_t min_tranc_id = UINT64_MAX;
+
   if (frozen_tables.empty()) {
     // 如果当前表为空，直接返回nullptr
     if (current_table->get_size() == 0) {
@@ -159,9 +175,12 @@ MemTable::flush_last(SSTBuilder &builder, std::string &sst_path, size_t sst_id,
   std::vector<std::tuple<std::string, std::string, uint64_t>> flush_data =
       table->flush();
   for (auto &[k, v, t] : flush_data) {
+    max_tranc_id = std::max(t, max_tranc_id);
+    min_tranc_id = std::min(t, min_tranc_id);
     builder.add(k, v, t);
   }
   auto sst = builder.build(sst_id, sst_path, block_cache);
+
   return sst;
 }
 

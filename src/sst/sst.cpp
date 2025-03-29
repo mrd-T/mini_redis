@@ -20,27 +20,40 @@ std::shared_ptr<SST> SST::open(size_t sst_id, FileObj file,
   sst->file = std::move(file);
   sst->block_cache = block_cache;
 
-  // 读取文件末尾的元数据块
-  // 1. 读取元数据块的偏移量, 最后8字节: 2个 uint32_t,
-  // 分别是 meta 和 bloom 的 offset
   size_t file_size = sst->file.size();
-  if (file_size < sizeof(size_t)) {
+  // 读取文件末尾的元数据块
+  if (file_size < sizeof(uint64_t) * 2 + sizeof(uint32_t) * 2) {
     throw std::runtime_error("Invalid SST file: too small");
   }
 
-  auto bloom_offset_bytes =
-      sst->file.read_to_slice(file_size - sizeof(uint32_t), sizeof(uint32_t));
+  // 0. 读取最大和最小的事务id
+  auto max_tranc_id =
+      sst->file.read_to_slice(file_size - sizeof(uint64_t), sizeof(uint64_t));
+  memcpy(&sst->max_tranc_id_, max_tranc_id.data(), sizeof(uint64_t));
+
+  auto min_tranc_id = sst->file.read_to_slice(file_size - sizeof(uint64_t) * 2,
+                                              sizeof(uint64_t));
+  memcpy(&sst->min_tranc_id_, min_tranc_id.data(), sizeof(uint64_t));
+
+  // 1. 读取元数据块的偏移量, 最后8字节: 2个 uint32_t,
+  // 分别是 meta 和 bloom 的 offset
+
+  auto bloom_offset_bytes = sst->file.read_to_slice(
+      file_size - sizeof(uint64_t) * 2 - sizeof(uint32_t), sizeof(uint32_t));
   memcpy(&sst->bloom_offset, bloom_offset_bytes.data(), sizeof(uint32_t));
 
   auto meta_offset_bytes = sst->file.read_to_slice(
-      file_size - sizeof(uint32_t) * 2, sizeof(uint32_t));
+      file_size - sizeof(uint64_t) * 2 - sizeof(uint32_t) * 2,
+      sizeof(uint32_t));
   memcpy(&sst->meta_block_offset, meta_offset_bytes.data(), sizeof(uint32_t));
 
   // 2. 读取 bloom filter
-  if (sst->bloom_offset + 2 * sizeof(uint32_t) < file_size) {
+  if (sst->bloom_offset + 2 * sizeof(uint32_t) + 2 * sizeof(uint64_t) <
+      file_size) {
     // 布隆过滤器偏移量 + 2*uint32_t 的大小小于文件大小
     // 表示存在布隆过滤器
-    uint32_t bloom_size = file_size - sst->bloom_offset - sizeof(uint32_t) * 2;
+    uint32_t bloom_size = file_size - sizeof(uint64_t) * 2 - sst->bloom_offset -
+                          sizeof(uint32_t) * 2;
     auto bloom_bytes = sst->file.read_to_slice(sst->bloom_offset, bloom_size);
 
     auto bloom = BloomFilter::decode(bloom_bytes);
@@ -179,6 +192,10 @@ SstIterator SST::end() {
   return res;
 }
 
+std::pair<uint64_t, uint64_t> SST::get_tranc_id_range() const {
+  return std::make_pair(min_tranc_id_, max_tranc_id_);
+}
+
 // **************************************************
 // SSTBuilder
 // **************************************************
@@ -206,6 +223,10 @@ void SSTBuilder::add(const std::string &key, const std::string &value,
   if (bloom_filter != nullptr) {
     bloom_filter->add(key);
   }
+
+  // 记录 事务id 范围
+  max_tranc_id_ = std::max(max_tranc_id_, tranc_id);
+  min_tranc_id_ = std::min(min_tranc_id_, tranc_id);
 
   bool force_write = key == last_key;
   // 连续出现相同的 key 必须位于 同一个 block 中
@@ -279,16 +300,25 @@ SSTBuilder::build(size_t sst_id, const std::string &path,
     file_content.insert(file_content.end(), bf_data.begin(), bf_data.end());
   }
 
-  file_content.resize(file_content.size() + sizeof(uint32_t) * 2);
-  // sizeof(uint32_t) * 2 表示需要分别记录布隆过滤器和元数据块的偏移量
+  auto extra_len = sizeof(uint32_t) * 2 + sizeof(uint64_t) * 2;
+  file_content.resize(file_content.size() + extra_len);
+  // sizeof(uint32_t) * 2  表示: 元数据块的偏移量, 布隆过滤器偏移量,
+  // sizeof(uint64_t) * 2  表示: 最小事务id,, 最大事务id
 
   // 4. 添加元数据块偏移量
-  memcpy(file_content.data() + file_content.size() - sizeof(uint32_t) * 2,
-         &meta_offset, sizeof(uint32_t));
+  memcpy(file_content.data() + file_content.size() - extra_len, &meta_offset,
+         sizeof(uint32_t));
 
   // 5. 添加布隆过滤器偏移量
-  memcpy(file_content.data() + file_content.size() - sizeof(uint32_t),
+  memcpy(file_content.data() + file_content.size() - extra_len +
+             sizeof(uint32_t),
          &bloom_offset, sizeof(uint32_t));
+
+  // 6. 添加最大和最小的事务id
+  memcpy(file_content.data() + file_content.size() - sizeof(uint64_t) * 2,
+         &min_tranc_id_, sizeof(uint64_t));
+  memcpy(file_content.data() + file_content.size() - sizeof(uint64_t),
+         &max_tranc_id_, sizeof(uint64_t));
 
   // 创建文件
   FileObj file = FileObj::create_and_write(path, file_content);
@@ -305,6 +335,8 @@ SSTBuilder::build(size_t sst_id, const std::string &path,
   res->bloom_offset = bloom_offset;
   res->meta_entries = std::move(meta_entries);
   res->block_cache = block_cache;
+  res->max_tranc_id_ = max_tranc_id_;
+  res->min_tranc_id_ = min_tranc_id_;
 
   return res;
 }

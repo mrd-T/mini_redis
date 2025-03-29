@@ -21,15 +21,15 @@ TEST(SkipListTest, BasicOperations) {
 
   // 测试插入和查找
   skipList.put("key1", "value1", 0);
-  EXPECT_EQ(std::get<1>(skipList.get("key1", 0).value()), "value1");
+  EXPECT_EQ(skipList.get("key1", 0).get_value(), "value1");
 
   // 测试更新
   skipList.put("key1", "new_value", 0);
-  EXPECT_EQ(std::get<1>(skipList.get("key1", 0).value()), "new_value");
+  EXPECT_EQ(skipList.get("key1", 0).get_value(), "new_value");
 
   // 测试删除
   skipList.remove("key1");
-  EXPECT_FALSE(skipList.get("key1", 0).has_value());
+  EXPECT_FALSE(skipList.get("key1", 0).is_valid());
 }
 
 // 测试迭代器
@@ -67,7 +67,7 @@ TEST(SkipListTest, LargeScaleInsertAndGet) {
   for (int i = 0; i < num_elements; ++i) {
     std::string key = "key" + std::to_string(i);
     std::string expected_value = "value" + std::to_string(i);
-    EXPECT_EQ(std::get<1>(skipList.get(key, 0).value()), expected_value);
+    EXPECT_EQ((skipList.get(key, 0).get_value()), expected_value);
   }
 }
 
@@ -100,7 +100,7 @@ TEST(SkipListTest, LargeScaleRemove) {
   // 验证所有数据已被删除
   for (int i = 0; i < num_elements; ++i) {
     std::string key = "key" + std::to_string(i);
-    EXPECT_FALSE(skipList.get(key, 0).has_value());
+    EXPECT_FALSE(skipList.get(key, 0).is_valid());
   }
 }
 
@@ -114,7 +114,7 @@ TEST(SkipListTest, DuplicateInsert) {
   skipList.put("key1", "value3", 0);
 
   // 验证最后一次插入的值
-  EXPECT_EQ(std::get<1>(skipList.get("key1", 0).value()), "value3");
+  EXPECT_EQ((skipList.get("key1", 0).get_value()), "value3");
 }
 
 // 测试空跳表
@@ -122,7 +122,7 @@ TEST(SkipListTest, EmptySkipList) {
   SkipList skipList;
 
   // 验证空跳表的查找和删除
-  EXPECT_FALSE(skipList.get("nonexistent_key", 0).has_value());
+  EXPECT_FALSE(skipList.get("nonexistent_key", 0).is_valid());
   skipList.remove("nonexistent_key"); // 删除不存在的key
 }
 
@@ -148,9 +148,9 @@ TEST(SkipListTest, RandomInsertAndRemove) {
 
     // 验证当前状态
     if (keys.find(key) != keys.end()) {
-      EXPECT_EQ(std::get<1>(skipList.get(key, 0).value()), value);
+      EXPECT_EQ((skipList.get(key, 0).get_value()), value);
     } else {
-      EXPECT_FALSE(skipList.get(key, 0).has_value());
+      EXPECT_FALSE(skipList.get(key, 0).is_valid());
     }
   }
 }
@@ -333,11 +333,11 @@ TEST(SkipListTest, TransactionId) {
 
   // 验证事务 id
   // 不指定事务 id，应该返回最新的值
-  EXPECT_EQ(std::get<1>(skipList.get("key1", 0).value()), "value2");
+  EXPECT_EQ((skipList.get("key1", 0).get_value()), "value2");
   // 指定 1 表示只能查找事务 id 小于等于 1 的值
-  EXPECT_EQ(std::get<1>(skipList.get("key1", 1).value()), "value1");
+  EXPECT_EQ((skipList.get("key1", 1).get_value()), "value1");
   // 指定 2 表示只能查找事务 id 小于等于 2 的值
-  EXPECT_EQ(std::get<1>(skipList.get("key1", 2).value()), "value2");
+  EXPECT_EQ((skipList.get("key1", 2).get_value()), "value2");
 }
 
 // ! 现在的实现, 并发的锁由 SkipList 的上层 MemTable 实现, 因此不需要测试
@@ -412,7 +412,7 @@ TEST(SkipListTest, TransactionId) {
 
 //       if (!key_to_find.empty()) {
 //         auto result = skipList.get(key_to_find);
-//         if (result.has_value()) {
+//         if (result.is_valid()) {
 //           found_count++;
 //         }
 //       }

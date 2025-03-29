@@ -1,6 +1,7 @@
 #pragma once
 
-#include "../wal/record.h"
+#include "../utils/files.h"
+#include "../wal/wal.h"
 #include <atomic>
 #include <map>
 #include <memory>
@@ -14,13 +15,17 @@ class LSMEngine;
 class TranManager;
 
 class TranContext {
+  friend class TranManager;
+
 public:
   TranContext(uint64_t tranc_id, std::shared_ptr<LSMEngine> engine,
               std::shared_ptr<TranManager> tranManager);
   void put(const std::string &key, const std::string &value);
   void remove(const std::string &key);
   std::optional<std::string> get(const std::string &key);
-  bool commit();
+
+  // ! test_fail = true 是测试中手动触发的崩溃
+  bool commit(bool test_fail = false);
   void abort();
 
   std::shared_ptr<LSMEngine> engine_;
@@ -36,17 +41,35 @@ class TranManager : public std::enable_shared_from_this<TranManager> {
 public:
   TranManager(std::string data_dir);
   ~TranManager();
-  uint64_t getNextTransactionId();
+  void init_new_wal();
   void set_engine(std::shared_ptr<LSMEngine> engine);
   std::shared_ptr<TranContext> new_tranc();
 
-private:
+  uint64_t getNextTransactionId();
+  uint64_t get_max_flushed_tranc_id();
+  uint64_t get_max_finished_tranc_id_();
+
+  void update_max_finished_tranc_id(uint64_t tranc_id);
+  void update_max_flushed_tranc_id(uint64_t tranc_id);
+
+  bool write_to_wal(const std::vector<Record> &records);
+
+  std::map<uint64_t, std::vector<Record>> check_recover();
+
   std::string get_tranc_id_file_path();
+  void write_tranc_id_file();
+  void read_tranc_id_file();
+  // void flusher();
 
 private:
-  std::shared_ptr<LSMEngine> engine_;
-  std::string data_dir_;
   mutable std::mutex mutex_;
-  std::atomic<uint64_t> nextTransactionId_;
+  std::shared_ptr<LSMEngine> engine_;
+  std::shared_ptr<WAL> wal;
+  std::string data_dir_;
+  // std::atomic<bool> flush_thread_running_ = true;
+  std::atomic<uint64_t> nextTransactionId_ = 1;
+  std::atomic<uint64_t> max_flushed_tranc_id_ = 0;
+  std::atomic<uint64_t> max_finished_tranc_id_ = 0;
   std::map<uint64_t, std::shared_ptr<TranContext>> activeTrans_;
+  FileObj tranc_id_file_;
 };

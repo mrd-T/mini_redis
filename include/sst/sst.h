@@ -54,6 +54,8 @@ private:
   std::string last_key;
   std::shared_ptr<BloomFilter> bloom_filter;
   std::shared_ptr<BlockCache> block_cache;
+  uint64_t min_tranc_id_ = UINT64_MAX;
+  uint64_t max_tranc_id_ = 0;
 
 public:
   // 从文件中打开sst
@@ -88,12 +90,13 @@ public:
   // 返回sst的id
   size_t get_sst_id() const;
 
-  // TODO: 单调谓词查询 (这里的单调谓词主要指 范围查询 和 前缀查询)
   std::optional<std::pair<SstIterator, SstIterator>>
   iters_monotony_predicate(std::function<bool(const std::string &)> predicate);
 
   SstIterator begin(uint64_t tranc_id);
   SstIterator end();
+
+  std::pair<uint64_t, uint64_t> get_tranc_id_range() const;
 };
 
 class SSTBuilder {
@@ -105,6 +108,8 @@ private:
   std::vector<uint8_t> data;
   size_t block_size;
   std::shared_ptr<BloomFilter> bloom_filter;
+  uint64_t min_tranc_id_ = UINT64_MAX;
+  uint64_t max_tranc_id_ = 0;
 
 public:
   // 创建一个sst构建器, 指定目标block的大小

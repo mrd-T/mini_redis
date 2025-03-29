@@ -17,19 +17,21 @@
 class BlockCache;
 class SST;
 class SSTBuilder;
+class TranContext;
 
 class MemTable {
+  friend class TranContext;
   friend class HeapIterator;
 
 private:
   void put_(const std::string &key, const std::string &value,
             uint64_t tranc_id);
 
-  std::optional<std::tuple<std::string, std::string, uint64_t>>
-  cur_get_(const std::string &key, uint64_t tranc_id);
-  std::optional<std::tuple<std::string, std::string, uint64_t>>
+  SkipListIterator get_(const std::string &key, uint64_t tranc_id);
 
-  frozen_get_(const std::string &key, uint64_t tranc_id);
+  SkipListIterator cur_get_(const std::string &key, uint64_t tranc_id);
+
+  SkipListIterator frozen_get_(const std::string &key, uint64_t tranc_id);
 
   void remove_(const std::string &key, uint64_t tranc_id);
   void frozen_cur_table_(); // _ 表示不需要锁的版本
@@ -42,7 +44,7 @@ public:
   void put_batch(const std::vector<std::pair<std::string, std::string>> &kvs,
                  uint64_t tranc_id);
 
-  std::optional<std::string> get(const std::string &key, uint64_t tranc_id);
+  SkipListIterator get(const std::string &key, uint64_t tranc_id);
   void remove(const std::string &key, uint64_t tranc_id);
   void remove_batch(const std::vector<std::string> &keys, uint64_t tranc_id);
 

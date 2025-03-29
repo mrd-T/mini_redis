@@ -27,16 +27,25 @@ public:
   LSMEngine(std::string path);
   ~LSMEngine();
 
-  std::optional<std::string> get(const std::string &key, uint64_t tranc_id);
+  std::optional<std::pair<std::string, uint64_t>> get(const std::string &key,
+                                                      uint64_t tranc_id);
 
-  void put(const std::string &key, const std::string &value, uint64_t tranc_id);
-  void put_batch(const std::vector<std::pair<std::string, std::string>> &kvs,
-                 uint64_t tranc_id);
-  void remove(const std::string &key, uint64_t tranc_id);
-  void remove_batch(const std::vector<std::string> &keys, uint64_t tranc_id);
+  std::optional<std::pair<std::string, uint64_t>>
+  sst_get_(const std::string &key, uint64_t tranc_id);
+
+  // 如果触发了刷盘, 返回当前刷入sst的最大事务id
+  uint64_t put(const std::string &key, const std::string &value,
+               uint64_t tranc_id);
+
+  uint64_t
+  put_batch(const std::vector<std::pair<std::string, std::string>> &kvs,
+            uint64_t tranc_id);
+
+  uint64_t remove(const std::string &key, uint64_t tranc_id);
+  uint64_t remove_batch(const std::vector<std::string> &keys,
+                        uint64_t tranc_id);
   void clear();
-  void flush();
-  void flush_all();
+  uint64_t flush();
 
   std::string get_sst_path(size_t sst_id, size_t target_level);
 

@@ -124,10 +124,17 @@ The performance of the wrapper redis server is not very good, but it is still fa
   - [x] Query
   - [x] Range Query
   - [x] Compact
-- [ ] Wal
-- [ ] Transaction
-  - [ ] MVCC
+- [x] Wal
+  - [x] Sync Wal
+  - [ ] Async Wal
+  - [x] Recover
+- [x] Transaction
+  - [x] MVCC
   - [ ] Snapshot
+  - [x] Isolation Level
+    - [ ] Read Uncommitted
+    - [x] Read Committed (Default)
+    - [ ] Serializable
 - [x] Redis
   - [x] Fundamental KV Operations
     - [x] set

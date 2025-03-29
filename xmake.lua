@@ -46,37 +46,36 @@ target("sst")
     add_files("src/sst/*.cpp")
     add_includedirs("include", {public = true})
 
-target("lsm")
-    set_kind("static")  -- 生成静态库
-    add_deps("sst", "memtable")
-    add_files("src/lsm/*.cpp")
-    add_includedirs("include", {public = true})
-
 target("wal")
     set_kind("static")  -- 生成静态库
     add_deps("sst", "memtable")
     add_files("src/wal/*.cpp")
     add_includedirs("include", {public = true})
 
-
-target("redis")
+target("lsm")
     set_kind("static")  -- 生成静态库
-    add_deps("lsm")
-    add_files("src/redis_wrapper/*.cpp")
+    add_deps("sst", "memtable", "wal")
+    add_files("src/lsm/*.cpp")
     add_includedirs("include", {public = true})
 
--- 定义动态链接库目标
-target("lsm_shared")
-    set_kind("shared")
-    add_files("src/**.cpp")
-    add_includedirs("include", {public = true})
-    set_targetdir("$(buildir)/lib")
+-- target("redis")
+--     set_kind("static")  -- 生成静态库
+--     add_deps("lsm")
+--     add_files("src/redis_wrapper/*.cpp")
+--     add_includedirs("include", {public = true})
 
-    -- 安装头文件和动态链接库
-    on_install(function (target)
-        os.cp("include", path.join(target:installdir(), "include/toni-lsm"))
-        os.cp(target:targetfile(), path.join(target:installdir(), "lib"))
-    end)
+-- -- 定义动态链接库目标
+-- target("lsm_shared")
+--     set_kind("shared")
+--     add_files("src/**.cpp")
+--     add_includedirs("include", {public = true})
+--     set_targetdir("$(buildir)/lib")
+
+--     -- 安装头文件和动态链接库
+--     on_install(function (target)
+--         os.cp("include", path.join(target:installdir(), "include/toni-lsm"))
+--         os.cp(target:targetfile(), path.join(target:installdir(), "lib"))
+--     end)
 
 -- 定义测试
 target("test_skiplist")
@@ -142,33 +141,33 @@ target("test_compact")
     add_packages("gtest")
     add_includedirs("include")
 
-target("test_redis")
-    set_kind("binary")
-    add_files("test/test_redis.cpp")
-    add_deps("redis", "memtable", "iterator")  -- Added memtable and iterator dependencies
-    add_includedirs("include")
-    add_packages("gtest")
+-- target("test_redis")
+--     set_kind("binary")
+--     add_files("test/test_redis.cpp")
+--     add_deps("redis", "memtable", "iterator")  -- Added memtable and iterator dependencies
+--     add_includedirs("include")
+--     add_packages("gtest")
 
-target("test_wal")
-    set_kind("binary")
-    add_files("test/test_wal.cpp")
-    add_deps("wal")  -- Added memtable and iterator dependencies
-    add_includedirs("include")
-    add_packages("gtest")
+-- target("test_wal")
+--     set_kind("binary")
+--     add_files("test/test_wal.cpp")
+--     add_deps("wal")  -- Added memtable and iterator dependencies
+--     add_includedirs("include")
+--     add_packages("gtest")
 
--- 定义 示例
-target("example")
-    set_kind("binary")
-    add_files("example/main.cpp")
-    add_deps("lsm_shared")
-    add_includedirs("include", {public = true})
-    set_targetdir("$(buildir)/bin")
+-- -- 定义 示例
+-- target("example")
+--     set_kind("binary")
+--     add_files("example/main.cpp")
+--     add_deps("lsm_shared")
+--     add_includedirs("include", {public = true})
+--     set_targetdir("$(buildir)/bin")
 
--- 定义server
-target("server")
-    set_kind("binary")
-    add_files("server/src/*.cpp")
-    add_deps("redis")
-    add_includedirs("include", {public = true})
-    add_packages("muduo")
-    set_targetdir("$(buildir)/bin")
+-- -- 定义server
+-- target("server")
+--     set_kind("binary")
+--     add_files("server/src/*.cpp")
+--     add_deps("redis")
+--     add_includedirs("include", {public = true})
+--     add_packages("muduo")
+--     set_targetdir("$(buildir)/bin")

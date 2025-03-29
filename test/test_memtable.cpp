@@ -11,15 +11,15 @@ TEST(MemTableTest, BasicOperations) {
   MemTable memtable;
 
   // 测试插入和查找
-  memtable.put("key1", "value1");
-  EXPECT_EQ(memtable.get("key1").value(), "value1");
+  memtable.put("key1", "value1", 0);
+  EXPECT_EQ(memtable.get("key1", 0).value(), "value1");
 
   // 测试更新
-  memtable.put("key1", "new_value");
-  EXPECT_EQ(memtable.get("key1").value(), "new_value");
+  memtable.put("key1", "new_value", 0);
+  EXPECT_EQ(memtable.get("key1", 0).value(), "new_value");
 
   // 测试不存在的key
-  EXPECT_FALSE(memtable.get("nonexistent").has_value());
+  EXPECT_FALSE(memtable.get("nonexistent", 0).has_value());
 }
 
 // 测试删除操作
@@ -27,13 +27,13 @@ TEST(MemTableTest, RemoveOperations) {
   MemTable memtable;
 
   // 插入并删除
-  memtable.put("key1", "value1");
-  memtable.remove("key1");
-  EXPECT_TRUE(memtable.get("key1").value().empty());
+  memtable.put("key1", "value1", 0);
+  memtable.remove("key1", 0);
+  EXPECT_TRUE(memtable.get("key1", 0).value().empty());
 
   // 删除不存在的key
-  memtable.remove("nonexistent");
-  EXPECT_TRUE(memtable.get("nonexistent").value().empty());
+  memtable.remove("nonexistent", 0);
+  EXPECT_TRUE(memtable.get("nonexistent", 0).value().empty());
 }
 
 // 测试冻结表操作
@@ -41,19 +41,19 @@ TEST(MemTableTest, FrozenTableOperations) {
   MemTable memtable;
 
   // 在当前表中插入数据
-  memtable.put("key1", "value1");
-  memtable.put("key2", "value2");
+  memtable.put("key1", "value1", 0);
+  memtable.put("key2", "value2", 0);
 
   // 冻结当前表
   memtable.frozen_cur_table();
 
   // 在新的当前表中插入数据
-  memtable.put("key3", "value3");
+  memtable.put("key3", "value3", 0);
 
   // 验证所有数据都能被访问到
-  EXPECT_EQ(memtable.get("key1").value(), "value1");
-  EXPECT_EQ(memtable.get("key2").value(), "value2");
-  EXPECT_EQ(memtable.get("key3").value(), "value3");
+  EXPECT_EQ(memtable.get("key1", 0).value(), "value1");
+  EXPECT_EQ(memtable.get("key2", 0).value(), "value2");
+  EXPECT_EQ(memtable.get("key3", 0).value(), "value3");
 }
 
 // 测试大量数据操作
@@ -65,14 +65,14 @@ TEST(MemTableTest, LargeScaleOperations) {
   for (int i = 0; i < num_entries; i++) {
     std::string key = "key" + std::to_string(i);
     std::string value = "value" + std::to_string(i);
-    memtable.put(key, value);
+    memtable.put(key, value, 0);
   }
 
   // 验证数据
   for (int i = 0; i < num_entries; i++) {
     std::string key = "key" + std::to_string(i);
     std::string expected = "value" + std::to_string(i);
-    EXPECT_EQ(memtable.get(key).value(), expected);
+    EXPECT_EQ(memtable.get(key, 0).value(), expected);
   }
 }
 
@@ -84,7 +84,7 @@ TEST(MemTableTest, MemorySizeTracking) {
   EXPECT_EQ(memtable.get_total_size(), 0);
 
   // 添加数据后大小应该增加
-  memtable.put("key1", "value1");
+  memtable.put("key1", "value1", 0);
   EXPECT_GT(memtable.get_cur_size(), 0);
 
   // 冻结表后，frozen_size应该增加
@@ -98,20 +98,20 @@ TEST(MemTableTest, MultipleFrozenTables) {
   MemTable memtable;
 
   // 第一次冻结
-  memtable.put("key1", "value1");
+  memtable.put("key1", "value1", 0);
   memtable.frozen_cur_table();
 
   // 第二次冻结
-  memtable.put("key2", "value2");
+  memtable.put("key2", "value2", 0);
   memtable.frozen_cur_table();
 
   // 在当前表中添加数据
-  memtable.put("key3", "value3");
+  memtable.put("key3", "value3", 0);
 
   // 验证所有数据都能访问
-  EXPECT_EQ(memtable.get("key1").value(), "value1");
-  EXPECT_EQ(memtable.get("key2").value(), "value2");
-  EXPECT_EQ(memtable.get("key3").value(), "value3");
+  EXPECT_EQ(memtable.get("key1", 0).value(), "value1");
+  EXPECT_EQ(memtable.get("key2", 0).value(), "value2");
+  EXPECT_EQ(memtable.get("key3", 0).value(), "value3");
 }
 
 // 测试迭代器在复杂操作序列下的行为
@@ -119,13 +119,13 @@ TEST(MemTableTest, IteratorComplexOperations) {
   MemTable memtable;
 
   // 第一批操作：基本插入
-  memtable.put("key1", "value1");
-  memtable.put("key2", "value2");
-  memtable.put("key3", "value3");
+  memtable.put("key1", "value1", 0);
+  memtable.put("key2", "value2", 0);
+  memtable.put("key3", "value3", 0);
 
   // 验证第一批操作
   std::vector<std::pair<std::string, std::string>> result1;
-  for (auto it = memtable.begin(); it != memtable.end(); ++it) {
+  for (auto it = memtable.begin(0); it != memtable.end(); ++it) {
     result1.push_back(*it);
   }
   ASSERT_EQ(result1.size(), 3);
@@ -137,13 +137,13 @@ TEST(MemTableTest, IteratorComplexOperations) {
   memtable.frozen_cur_table();
 
   // 第二批操作：更新和删除
-  memtable.put("key2", "value2_updated"); // 更新已存在的key
-  memtable.remove("key1");                // 删除一个key
-  memtable.put("key4", "value4");         // 插入新key
+  memtable.put("key2", "value2_updated", 0); // 更新已存在的key
+  memtable.remove("key1", 0);                // 删除一个key
+  memtable.put("key4", "value4", 0);         // 插入新key
 
   // 验证第二批操作
   std::vector<std::pair<std::string, std::string>> result2;
-  for (auto it = memtable.begin(); it != memtable.end(); ++it) {
+  for (auto it = memtable.begin(0); it != memtable.end(); ++it) {
     result2.push_back(*it);
   }
   ASSERT_EQ(result2.size(), 3); // key1被删除，key4被添加
@@ -155,14 +155,14 @@ TEST(MemTableTest, IteratorComplexOperations) {
   memtable.frozen_cur_table();
 
   // 第三批操作：混合操作
-  memtable.put("key1", "value1_new"); // 重新插入被删除的key
-  memtable.remove("key3"); // 删除一个在第一个frozen table中的key
-  memtable.put("key2", "value2_final"); // 再次更新key2
-  memtable.put("key5", "value5");       // 插入新key
+  memtable.put("key1", "value1_new", 0); // 重新插入被删除的key
+  memtable.remove("key3", 0); // 删除一个在第一个frozen table中的key
+  memtable.put("key2", "value2_final", 0); // 再次更新key2
+  memtable.put("key5", "value5", 0);       // 插入新key
 
   // 验证最终结果
   std::vector<std::pair<std::string, std::string>> final_result;
-  for (auto it = memtable.begin(); it != memtable.end(); ++it) {
+  for (auto it = memtable.begin(0); it != memtable.end(); ++it) {
     final_result.push_back(*it);
   }
 
@@ -184,7 +184,7 @@ TEST(MemTableTest, IteratorComplexOperations) {
 
   // 验证被删除的key确实不存在
   bool has_key3 = false;
-  auto res = memtable.get("key3");
+  auto res = memtable.get("key3", 0);
   EXPECT_TRUE(res.value().empty());
 }
 
@@ -218,17 +218,17 @@ TEST(MemTableTest, ConcurrentOperations) {
 
       if (i % 3 == 0) {
         // 插入操作
-        memtable.put(key, value);
+        memtable.put(key, value, 0);
         {
           std::lock_guard<std::mutex> lock(keys_mutex);
           inserted_keys.push_back(key);
         }
       } else if (i % 3 == 1) {
         // 删除操作
-        memtable.remove(key);
+        memtable.remove(key, 0);
       } else {
         // 更新操作
-        memtable.put(key, value + "_updated");
+        memtable.put(key, value + "_updated", 0);
       }
 
       std::this_thread::sleep_for(std::chrono::microseconds(rand() % 100));
@@ -255,7 +255,7 @@ TEST(MemTableTest, ConcurrentOperations) {
       }
 
       if (!key_to_find.empty()) {
-        auto result = memtable.get(key_to_find);
+        auto result = memtable.get(key_to_find, 0);
         if (result.has_value()) {
           found_count++;
         }
@@ -264,7 +264,7 @@ TEST(MemTableTest, ConcurrentOperations) {
       // 每隔一段时间进行一次遍历操作
       if (i % 100 == 0) {
         std::vector<std::pair<std::string, std::string>> items;
-        for (auto it = memtable.begin(); it != memtable.end(); ++it) {
+        for (auto it = memtable.begin(0); it != memtable.end(); ++it) {
           items.push_back(*it);
         }
       }
@@ -343,7 +343,7 @@ TEST(MemTableTest, ConcurrentOperations) {
 
   // 验证最终状态
   size_t final_size = 0;
-  for (auto it = memtable.begin(); it != memtable.end(); ++it) {
+  for (auto it = memtable.begin(0); it != memtable.end(); ++it) {
     final_size++;
   }
 
@@ -362,31 +362,31 @@ TEST(MemTableTest, PreffixIter) {
   MemTable memtable;
 
   // 在当前表中插入数据
-  memtable.put("abc", "3");
-  memtable.put("abcde", "5");
-  memtable.put("abcd", "4");
-  memtable.put("xxx", "-1");
-  memtable.put("abcdef", "6");
-  memtable.put("yyyy", "-1");
+  memtable.put("abc", "3", 0);
+  memtable.put("abcde", "5", 0);
+  memtable.put("abcd", "4", 0);
+  memtable.put("xxx", "-1", 0);
+  memtable.put("abcdef", "6", 0);
+  memtable.put("yyyy", "-1", 0);
 
   // 冻结当前表
   memtable.frozen_cur_table();
 
   // 在新的当前表中插入数据
-  memtable.put("zz", "-1");
-  memtable.put("abcdefg", "7");
-  memtable.remove("abcd");
-  memtable.put("abcdefgh", "8");
-  memtable.put("ab", "2");
-  memtable.put("wwwwww", "-1");
+  memtable.put("zz", "-1", 0);
+  memtable.put("abcdefg", "7", 0);
+  memtable.remove("abcd", 0);
+  memtable.put("abcdefgh", "8", 0);
+  memtable.put("ab", "2", 0);
+  memtable.put("wwwwww", "-1", 0);
 
   // 冻结当前表
   memtable.frozen_cur_table();
 
   // 在新的当前表中插入数据
-  memtable.put("mmmmm", "-1");
-  memtable.remove("ab");
-  memtable.put("abc", "33");
+  memtable.put("mmmmm", "-1", 0);
+  memtable.remove("ab", 0);
+  memtable.put("abc", "33", 0);
 
   int id = 0;
   std::vector<std::pair<std::string, std::string>> answer{{"abc", "33"},
@@ -395,7 +395,7 @@ TEST(MemTableTest, PreffixIter) {
                                                           {"abcdefg", "7"},
                                                           {"abcdefgh", "8"}};
 
-  for (auto it = memtable.iters_preffix("ab"); !it.is_end(); ++it) {
+  for (auto it = memtable.iters_preffix("ab", 0); !it.is_end(); ++it) {
     EXPECT_EQ(it->first, answer[id].first);
     EXPECT_EQ(it->second, answer[id].second);
     id++;

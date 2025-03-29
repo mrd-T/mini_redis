@@ -1,6 +1,7 @@
 #pragma once
 #include "../iterator/iterator.h"
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -8,22 +9,48 @@
 #include <random>
 #include <shared_mutex>
 #include <string>
+#include <sys/types.h>
+#include <tuple>
 #include <utility>
 #include <vector>
 
 // ************************ SkipListNode ************************
 struct SkipListNode {
-  std::string key;   // 节点存储的键
-  std::string value; // 节点存储的值
+  std::string key_;   // 节点存储的键
+  std::string value_; // 节点存储的值
+  uint64_t tranc_id_; // 事务 id
   std::vector<std::shared_ptr<SkipListNode>>
-      forward; // 指向不同层级的下一个节点的指针数组
+      forward_; // 指向不同层级的下一个节点的指针数组
   std::vector<std::weak_ptr<SkipListNode>>
-      backward; // 指向不同层级的下一个节点的指针数组
-  SkipListNode(const std::string &k, const std::string &v, int level)
-      : key(k), value(v), forward(level, nullptr),
-        backward(level, std::weak_ptr<SkipListNode>()) {}
+      backward_; // 指向不同层级的下一个节点的指针数组
+  SkipListNode(const std::string &k, const std::string &v, int level,
+               uint64_t tranc_id)
+      : key_(k), value_(v), forward_(level, nullptr),
+        backward_(level, std::weak_ptr<SkipListNode>()), tranc_id_(tranc_id) {}
   void set_backward(int level, std::shared_ptr<SkipListNode> node) {
-    backward[level] = std::weak_ptr<SkipListNode>(node);
+    backward_[level] = std::weak_ptr<SkipListNode>(node);
+  }
+
+  bool operator==(const SkipListNode &other) const {
+    return key_ == other.key_ && value_ == other.value_ &&
+           tranc_id_ == other.tranc_id_;
+  }
+
+  bool operator!=(const SkipListNode &other) const { return !(*this == other); }
+
+  bool operator<(const SkipListNode &other) const {
+    if (key_ == other.key_) {
+      // key 相等时，trans_id 更大的优先级更高
+      return tranc_id_ > other.tranc_id_;
+    }
+    return key_ < other.key_;
+  }
+  bool operator>(const SkipListNode &other) const {
+    if (key_ == other.key_) {
+      // key 相等时，trans_id 更大的优先级更高
+      return tranc_id_ < other.tranc_id_;
+    }
+    return key_ > other.key_;
   }
 };
 
@@ -52,6 +79,7 @@ public:
   virtual bool is_valid() const override;
   std::string get_key() const;
   std::string get_value() const;
+  uint64_t get_tranc_id() const override;
 
 private:
   std::shared_ptr<SkipListNode> current;
@@ -87,16 +115,23 @@ public:
     // ... 清理资源
   }
 
-  void put(const std::string &key,
-           const std::string &value); // 插入或更新键值对
+  // 插入或更新键值对
+  // 这里不对 tranc_id 进行检查，由上层保证 tranc_id 的合法性
+  void put(const std::string &key, const std::string &value, uint64_t tranc_id);
 
-  std::optional<std::string> get(const std::string &key); // 查找键对应的值
+  // 查找键对应的值
+  // 事务 id 为0 表示没有开启事务
+  // 否则只能查找事务 id 小于等于 tranc_id 的值
+  // 返回值: 如果找到，返回 value 和 tranc_id，否则返回空
+  std::optional<std::tuple<std::string, std::string, uint64_t>>
+  get(const std::string &key, uint64_t tranc_id);
 
   // !!! 这里的 remove 是跳表本身真实的 remove,  lsm 应该使用 put 空值表示删除
   void remove(const std::string &key); // 删除键值对
 
-  std::vector<std::pair<std::string, std::string>>
-  flush(); // 将跳表数据刷出，返回有序键值对列表
+  // 将跳表数据刷出，返回有序键值对列表
+  // value 为 真实 value 和 tranc_id 的二元组
+  std::vector<std::tuple<std::string, std::string, uint64_t>> flush();
 
   size_t get_size();
 

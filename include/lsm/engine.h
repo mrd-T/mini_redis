@@ -3,6 +3,7 @@
 #include "../memtable/memtable.h"
 #include "../sst/sst.h"
 #include "compact.h"
+#include "transaction.h"
 #include "two_merge_iterator.h"
 #include <cstddef>
 #include <deque>
@@ -26,12 +27,13 @@ public:
   LSMEngine(std::string path);
   ~LSMEngine();
 
-  std::optional<std::string> get(const std::string &key);
+  std::optional<std::string> get(const std::string &key, uint64_t tranc_id);
 
-  void put(const std::string &key, const std::string &value);
-  void put_batch(const std::vector<std::pair<std::string, std::string>> &kvs);
-  void remove(const std::string &key);
-  void remove_batch(const std::vector<std::string> &keys);
+  void put(const std::string &key, const std::string &value, uint64_t tranc_id);
+  void put_batch(const std::vector<std::pair<std::string, std::string>> &kvs,
+                 uint64_t tranc_id);
+  void remove(const std::string &key, uint64_t tranc_id);
+  void remove_batch(const std::vector<std::string> &keys, uint64_t tranc_id);
   void clear();
   void flush();
   void flush_all();
@@ -40,9 +42,9 @@ public:
 
   std::optional<std::pair<TwoMergeIterator, TwoMergeIterator>>
   lsm_iters_monotony_predicate(
-      std::function<int(const std::string &)> predicate);
+      uint64_t tranc_id, std::function<int(const std::string &)> predicate);
 
-  TwoMergeIterator begin();
+  TwoMergeIterator begin(uint64_t tranc_id);
   TwoMergeIterator end();
 
   static size_t get_sst_size(size_t level);
@@ -63,7 +65,8 @@ private:
 
 class LSM {
 private:
-  LSMEngine engine;
+  std::shared_ptr<LSMEngine> engine;
+  std::shared_ptr<TranManager> tran_manager_;
 
 public:
   LSM(std::string path);
@@ -78,12 +81,15 @@ public:
   void remove_batch(const std::vector<std::string> &keys);
 
   using LSMIterator = TwoMergeIterator;
-  LSMIterator begin();
+  LSMIterator begin(uint64_t tranc_id);
   LSMIterator end();
   std::optional<std::pair<TwoMergeIterator, TwoMergeIterator>>
   lsm_iters_monotony_predicate(
-      std::function<int(const std::string &)> predicate);
+      uint64_t tranc_id, std::function<int(const std::string &)> predicate);
   void clear();
   void flush();
   void flush_all();
+
+  // 开启一个事务
+  std::shared_ptr<TranContext> begin_tran();
 };

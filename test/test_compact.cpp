@@ -5,7 +5,7 @@
 #include <gtest/gtest.h>
 #include <iostream>
 
-class CompactTest : public ::testing::Test {
+class LSMTest : public ::testing::Test {
 protected:
   void SetUp() override {
     // Create a temporary test directory
@@ -26,7 +26,7 @@ protected:
   std::string test_dir;
 };
 
-TEST_F(CompactTest, Persistence) {
+TEST_F(LSMTest, Persistence) {
   std::unordered_map<std::string, std::string> kvs;
   int num = 100000;
   {

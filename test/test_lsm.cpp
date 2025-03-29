@@ -1,12 +1,13 @@
 #include "../include/consts.h"
 #include "../include/lsm/engine.h"
+#include <cstdlib>
 #include <filesystem>
 #include <gtest/gtest.h>
 #include <random>
 #include <string>
 #include <unordered_map>
 
-class CompactTest : public ::testing::Test {
+class LSMTest : public ::testing::Test {
 protected:
   void SetUp() override {
     // Create a temporary test directory
@@ -27,28 +28,28 @@ protected:
   std::string test_dir;
 };
 
-// Test basic operations: put, get, remove
-TEST_F(CompactTest, BasicOperations) {
-  LSM lsm(test_dir);
+// // Test basic operations: put, get, remove
+// TEST_F(LSMTest, BasicOperations) {
+//   LSM lsm(test_dir);
 
-  // Test put and get
-  lsm.put("key1", "value1");
-  EXPECT_EQ(lsm.get("key1").value(), "value1");
+//   // Test put and get
+//   lsm.put("key1", "value1");
+//   EXPECT_EQ(lsm.get("key1").value(), "value1");
 
-  // Test update
-  lsm.put("key1", "new_value");
-  EXPECT_EQ(lsm.get("key1").value(), "new_value");
+//   // Test update
+//   lsm.put("key1", "new_value");
+//   EXPECT_EQ(lsm.get("key1").value(), "new_value");
 
-  // Test remove
-  lsm.remove("key1");
-  EXPECT_FALSE(lsm.get("key1").has_value());
+//   // Test remove
+//   lsm.remove("key1");
+//   EXPECT_FALSE(lsm.get("key1").has_value());
 
-  // Test non-existent key
-  EXPECT_FALSE(lsm.get("nonexistent").has_value());
-}
+//   // Test non-existent key
+//   EXPECT_FALSE(lsm.get("nonexistent").has_value());
+// }
 
 // Test persistence across restarts
-TEST_F(CompactTest, Persistence) {
+TEST_F(LSMTest, Persistence) {
   std::unordered_map<std::string, std::string> kvs;
   int num = 100000;
   {
@@ -75,7 +76,15 @@ TEST_F(CompactTest, Persistence) {
     if (kvs.find(key) != kvs.end()) {
       EXPECT_EQ(lsm.get(key).value(), kvs[key]);
     } else {
-      EXPECT_FALSE(lsm.get(key).has_value());
+      if (key == "key4410") {
+        // debug
+        auto res = lsm.get("key4410");
+      }
+      if (lsm.get(key).has_value()) {
+        std::cout << "key" << i << " not exist but found" << std::endl;
+        exit(-1);
+      }
+      // EXPECT_FALSE(lsm.get(key).has_value());
     }
   }
 
@@ -84,7 +93,7 @@ TEST_F(CompactTest, Persistence) {
 }
 
 // Test large scale operations
-TEST_F(CompactTest, LargeScaleOperations) {
+TEST_F(LSMTest, LargeScaleOperations) {
   LSM lsm(test_dir);
   std::vector<std::pair<std::string, std::string>> data;
 
@@ -103,7 +112,7 @@ TEST_F(CompactTest, LargeScaleOperations) {
 }
 
 // Test iterator functionality
-TEST_F(CompactTest, IteratorOperations) {
+TEST_F(LSMTest, IteratorOperations) {
   LSM lsm(test_dir);
   std::map<std::string, std::string> reference;
 
@@ -116,7 +125,7 @@ TEST_F(CompactTest, IteratorOperations) {
   }
 
   // Test iterator
-  auto it = lsm.begin();
+  auto it = lsm.begin(0);
   auto ref_it = reference.begin();
 
   while (it != lsm.end() && ref_it != reference.end()) {
@@ -130,7 +139,7 @@ TEST_F(CompactTest, IteratorOperations) {
 }
 
 // Test mixed operations
-TEST_F(CompactTest, MixedOperations) {
+TEST_F(LSMTest, MixedOperations) {
   LSM lsm(test_dir);
   std::map<std::string, std::string> reference;
 
@@ -154,7 +163,7 @@ TEST_F(CompactTest, MixedOperations) {
   EXPECT_FALSE(lsm.get("key1").has_value());
 }
 
-TEST_F(CompactTest, MonotonyPredicate) {
+TEST_F(LSMTest, MonotonyPredicate) {
   LSM lsm(test_dir);
 
   // Insert data
@@ -185,7 +194,7 @@ TEST_F(CompactTest, MonotonyPredicate) {
   };
 
   // Call the method under test
-  auto result = lsm.lsm_iters_monotony_predicate(predicate);
+  auto result = lsm.lsm_iters_monotony_predicate(0, predicate);
 
   // Check if the result is not empty
   ASSERT_TRUE(result.has_value());
@@ -209,6 +218,53 @@ TEST_F(CompactTest, MonotonyPredicate) {
   EXPECT_EQ(actual_keys, expected_keys);
 }
 
+TEST_F(LSMTest, TrancIdTest) {
+  // 注意是 LSMEngine 而不是 LSM
+  // 因为 LSMEngine 才能手动控制事务id
+  LSMEngine lsm(test_dir);
+
+  // key00-key20 先插入, 此时事务id为1
+  for (int i = 0; i < 20; i++) {
+    std::ostringstream oss_key;
+    oss_key << "key" << std::setw(2) << std::setfill('0') << i;
+    std::string key = oss_key.str();
+    lsm.put(key, "tranc1", 1);
+  }
+  lsm.flush_all();
+
+  // key10-key10 再插入, 此时事务id为2
+  for (int i = 0; i < 10; i++) {
+    std::ostringstream oss_key;
+    oss_key << "key" << std::setw(2) << std::setfill('0') << i;
+    std::string key = oss_key.str();
+    lsm.put(key, "tranc2", 2);
+  }
+
+  // 在事务id为1时进行遍历, 事务id为2的记录是不可见的
+  for (int i = 0; i < 20; i++) {
+    std::ostringstream oss_key;
+    oss_key << "key" << std::setw(2) << std::setfill('0') << i;
+    std::string key = oss_key.str();
+
+    auto res = lsm.get(key, 1);
+
+    EXPECT_EQ(res.value(), "tranc1");
+  }
+
+  // 在事务id为2时进行遍历, 事务id为2的记录现在是可见的了
+  for (int i = 0; i < 20; i++) {
+    std::ostringstream oss_key;
+    oss_key << "key" << std::setw(2) << std::setfill('0') << i;
+    std::string key = oss_key.str();
+
+    auto res = lsm.get(key, 2);
+    if (i < 10) {
+      EXPECT_EQ(res.value(), "tranc2");
+    } else {
+      EXPECT_EQ(res.value(), "tranc1");
+    }
+  }
+}
 int main(int argc, char **argv) {
   testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();

@@ -14,7 +14,6 @@
 
 // *********************** LSMEngine ***********************
 LSMEngine::LSMEngine(std::string path) : data_dir(path) {
-  // TODO: 现在只有 l0 sst, 之后的命名需要重新设计前缀, 统一由函数拼接返回
   // 初始化 block_cahce
   block_cache = std::make_shared<BlockCache>(LSMmm_BLOCK_CACHE_CAPACITY,
                                              LSMmm_BLOCK_CACHE_K);
@@ -66,7 +65,6 @@ LSMEngine::LSMEngine(std::string path) : data_dir(path) {
       auto sst = SST::open(sst_id, FileObj::open(sst_path, false), block_cache);
       ssts[sst_id] = sst;
 
-      // 所有加载的SST都属于L0层
       level_sst_ids[level].push_back(sst_id);
     }
 
@@ -86,9 +84,10 @@ LSMEngine::~LSMEngine() {
   flush_all();
 }
 
-std::optional<std::string> LSMEngine::get(const std::string &key) {
+std::optional<std::string> LSMEngine::get(const std::string &key,
+                                          uint64_t tranc_id) {
   // 1. 先查找 memtable
-  auto value = memtable.get(key);
+  auto value = memtable.get(key, tranc_id);
   if (value.has_value()) {
     if (value.value().size() > 0) {
       // 值存在且不为空（没有被删除）
@@ -106,7 +105,7 @@ std::optional<std::string> LSMEngine::get(const std::string &key) {
     //  中的 sst_id 是按从大到小的顺序排列,
     // sst_id 越大, 表示是越晚刷入的, 优先查询
     auto sst = ssts[sst_id];
-    auto sst_iterator = sst->get(key);
+    auto sst_iterator = sst->get(key, tranc_id);
     if (sst_iterator != sst->end()) {
       if ((sst_iterator)->second.size() > 0) {
         // 值存在且不为空（没有被删除）
@@ -129,7 +128,7 @@ std::optional<std::string> LSMEngine::get(const std::string &key) {
       auto sst = ssts[l_sst_ids[mid]];
       if (sst->get_first_key() <= key && key <= sst->get_last_key()) {
         // 如果sst_id在中, 则在sst中查询
-        auto sst_iterator = sst->get(key);
+        auto sst_iterator = sst->get(key, tranc_id);
         if (sst_iterator.is_valid()) {
           if ((sst_iterator)->second.size() > 0) {
             // 值存在且不为空（没有被删除）
@@ -152,8 +151,9 @@ std::optional<std::string> LSMEngine::get(const std::string &key) {
   return std::nullopt;
 }
 
-void LSMEngine::put(const std::string &key, const std::string &value) {
-  memtable.put(key, value);
+void LSMEngine::put(const std::string &key, const std::string &value,
+                    uint64_t tranc_id) {
+  memtable.put(key, value, tranc_id);
 
   // 如果 memtable 太大，需要刷新到磁盘
   if (memtable.get_total_size() >= LSM_TOL_MEM_SIZE_LIMIT) {
@@ -162,20 +162,22 @@ void LSMEngine::put(const std::string &key, const std::string &value) {
 }
 
 void LSMEngine::put_batch(
-    const std::vector<std::pair<std::string, std::string>> &kvs) {
-  memtable.put_batch(kvs);
+    const std::vector<std::pair<std::string, std::string>> &kvs,
+    uint64_t tranc_id) {
+  memtable.put_batch(kvs, tranc_id);
   // 如果 memtable 太大，需要刷新到磁盘
   if (memtable.get_total_size() >= LSM_TOL_MEM_SIZE_LIMIT) {
     flush();
   }
 }
-void LSMEngine::remove(const std::string &key) {
+void LSMEngine::remove(const std::string &key, uint64_t tranc_id) {
   // 在 LSM 中，删除实际上是插入一个空值
-  memtable.remove(key);
+  memtable.remove(key, tranc_id);
 }
 
-void LSMEngine::remove_batch(const std::vector<std::string> &keys) {
-  memtable.remove_batch(keys);
+void LSMEngine::remove_batch(const std::vector<std::string> &keys,
+                             uint64_t tranc_id) {
+  memtable.remove_batch(keys, tranc_id);
 }
 
 void LSMEngine::clear() {
@@ -239,17 +241,17 @@ std::string LSMEngine::get_sst_path(size_t sst_id, size_t target_level) {
 
 std::optional<std::pair<TwoMergeIterator, TwoMergeIterator>>
 LSMEngine::lsm_iters_monotony_predicate(
-    std::function<int(const std::string &)> predicate) {
+    uint64_t tranc_id, std::function<int(const std::string &)> predicate) {
 
   //  先从 memtable 中查询
-  auto mem_result = memtable.iters_monotony_predicate(predicate);
+  auto mem_result = memtable.iters_monotony_predicate(tranc_id, predicate);
 
   // 再从 sst 中查询
   std::vector<SearchItem> item_vec;
   for (auto &[sst_level, sst_ids] : level_sst_ids) {
     for (auto &sst_id : sst_ids) {
       auto sst = ssts[sst_id];
-      auto result = sst_iters_monotony_predicate(sst, predicate);
+      auto result = sst_iters_monotony_predicate(sst, tranc_id, predicate);
       if (!result.has_value()) {
         continue;
       }
@@ -257,14 +259,23 @@ LSMEngine::lsm_iters_monotony_predicate(
       for (; it_begin != it_end && it_begin.is_valid(); ++it_begin) {
         // l0中, 这里越古老的sst的idx越小, 我们需要让新的sst优先在堆顶
         // 让新的sst(拥有更大的idx)排序在前面, 反转符号就行了
+        if (tranc_id != 0 && it_begin.get_tranc_id() > tranc_id) {
+          // 如果开启了事务, 比当前事务 id 更大的记录是不可见的
+          continue;
+        }
+        if (!item_vec.empty() && item_vec.back().key_ == it_begin.key()) {
+          // 如果key相同，则只保留最新的事务修改的记录即可
+          // 且这个记录既然已经存在于item_vec中，则其肯定满足了事务的可见性判断
+          continue;
+        }
         item_vec.emplace_back(it_begin.key(), it_begin.value(), -sst_id,
-                              sst_level);
+                              sst_level, it_begin.get_tranc_id());
       }
     }
   }
 
   std::shared_ptr<HeapIterator> l0_iter_ptr =
-      std::make_shared<HeapIterator>(item_vec);
+      std::make_shared<HeapIterator>(item_vec, tranc_id);
 
   if (!mem_result.has_value() && item_vec.empty()) {
     return std::nullopt;
@@ -274,25 +285,25 @@ LSMEngine::lsm_iters_monotony_predicate(
     std::shared_ptr<HeapIterator> mem_start_ptr =
         std::make_shared<HeapIterator>();
     *mem_start_ptr = mem_start;
-    auto start = TwoMergeIterator(mem_start_ptr, l0_iter_ptr);
+    auto start = TwoMergeIterator(mem_start_ptr, l0_iter_ptr, tranc_id);
     auto end = TwoMergeIterator{};
     return std::make_optional<std::pair<TwoMergeIterator, TwoMergeIterator>>(
         start, end);
   } else {
-    auto start =
-        TwoMergeIterator(std::make_shared<HeapIterator>(), l0_iter_ptr);
+    auto start = TwoMergeIterator(std::make_shared<HeapIterator>(), l0_iter_ptr,
+                                  tranc_id);
     auto end = TwoMergeIterator{};
     return std::make_optional<std::pair<TwoMergeIterator, TwoMergeIterator>>(
         start, end);
   }
 }
 
-TwoMergeIterator LSMEngine::begin() {
+TwoMergeIterator LSMEngine::begin(uint64_t tranc_id) {
   std::vector<SstIterator> iter_vec;
   std::shared_lock<std::shared_mutex> lock(ssts_mtx); // 读锁
   for (auto &sst_id : level_sst_ids[0]) {
     auto sst = ssts[sst_id];
-    for (auto iter = sst->begin(); iter != sst->end(); ++iter) {
+    for (auto iter = sst->begin(tranc_id); iter != sst->end(); ++iter) {
       // 这里越新的sst的idx越大, 我们需要让新的sst优先在堆顶
       // 让新的sst(拥有更大的idx)排序在前面, 反转符号就行了
       iter_vec.push_back(iter);
@@ -300,12 +311,12 @@ TwoMergeIterator LSMEngine::begin() {
   }
 
   std::shared_ptr<HeapIterator> mem_iter_ptr = std::make_shared<HeapIterator>();
-  *mem_iter_ptr = memtable.begin();
+  *mem_iter_ptr = memtable.begin(tranc_id);
 
   std::shared_ptr<HeapIterator> l0_iter_ptr = std::make_shared<HeapIterator>();
-  *l0_iter_ptr = SstIterator::merge_sst_iterator(iter_vec).first;
+  *l0_iter_ptr = SstIterator::merge_sst_iterator(iter_vec, tranc_id).first;
 
-  return TwoMergeIterator(mem_iter_ptr, l0_iter_ptr);
+  return TwoMergeIterator(mem_iter_ptr, l0_iter_ptr, tranc_id);
 }
 
 TwoMergeIterator LSMEngine::end() { return TwoMergeIterator{}; }
@@ -357,26 +368,27 @@ void LSMEngine::full_compact(size_t src_level) {
 std::vector<std::shared_ptr<SST>>
 LSMEngine::full_l0_l1_compact(std::vector<size_t> &l0_ids,
                               std::vector<size_t> &l1_ids) {
+  // TODO: 这里需要补全的是对已经完成事务的删除
   std::vector<SstIterator> l0_iters;
   std::vector<std::shared_ptr<SST>> l1_ssts;
 
   for (auto id : l0_ids) {
-    auto sst_it = ssts[id]->begin();
+    auto sst_it = ssts[id]->begin(0);
     l0_iters.push_back(sst_it);
   }
   for (auto id : l1_ids) {
     l1_ssts.push_back(ssts[id]);
   }
   // l0 的sst之间的key有重叠, 需要合并
-  auto [l0_begin, l0_end] = SstIterator::merge_sst_iterator(l0_iters);
+  auto [l0_begin, l0_end] = SstIterator::merge_sst_iterator(l0_iters, 0);
 
   std::shared_ptr<HeapIterator> l0_begin_ptr = std::make_shared<HeapIterator>();
   *l0_begin_ptr = l0_begin;
 
   std::shared_ptr<ConcactIterator> old_l1_begin_ptr =
-      std::make_shared<ConcactIterator>(l1_ssts);
+      std::make_shared<ConcactIterator>(l1_ssts, 0);
 
-  TwoMergeIterator l0_l1_begin(l0_begin_ptr, old_l1_begin_ptr);
+  TwoMergeIterator l0_l1_begin(l0_begin_ptr, old_l1_begin_ptr, 0);
 
   return gen_sst_from_iter(l0_l1_begin,
                            LSM_PER_MEM_SIZE_LIMIT * LSM_SST_LEVEL_RATIO, 1);
@@ -385,6 +397,7 @@ LSMEngine::full_l0_l1_compact(std::vector<size_t> &l0_ids,
 std::vector<std::shared_ptr<SST>>
 LSMEngine::full_common_compact(std::vector<size_t> &lx_ids,
                                std::vector<size_t> &ly_ids, size_t level_y) {
+  // TODO 需要补全已完成事务的滤除
   std::vector<std::shared_ptr<SST>> lx_iters;
   std::vector<std::shared_ptr<SST>> ly_iters;
 
@@ -396,12 +409,12 @@ LSMEngine::full_common_compact(std::vector<size_t> &lx_ids,
   }
 
   std::shared_ptr<ConcactIterator> old_lx_begin_ptr =
-      std::make_shared<ConcactIterator>(lx_iters);
+      std::make_shared<ConcactIterator>(lx_iters, 0);
 
   std::shared_ptr<ConcactIterator> old_ly_begin_ptr =
-      std::make_shared<ConcactIterator>(ly_iters);
+      std::make_shared<ConcactIterator>(ly_iters, 0);
 
-  TwoMergeIterator lx_ly_begin(old_lx_begin_ptr, old_ly_begin_ptr);
+  TwoMergeIterator lx_ly_begin(old_lx_begin_ptr, old_ly_begin_ptr, 0);
 
   // TODO:如果目标 level 的下一级 level+1 不存在, 则为底层的level,
   // 可以清理掉删除标记
@@ -413,11 +426,13 @@ LSMEngine::full_common_compact(std::vector<size_t> &lx_ids,
 std::vector<std::shared_ptr<SST>>
 LSMEngine::gen_sst_from_iter(BaseIterator &iter, size_t target_sst_size,
                              size_t target_level) {
+  // TODO: 这里需要补全的是对已经完成事务的删除
+
   std::vector<std::shared_ptr<SST>> new_ssts;
   auto new_sst_builder = SSTBuilder(LSM_BLOCK_SIZE, true);
   while (iter.is_valid() && !iter.is_end()) {
 
-    new_sst_builder.add((*iter).first, (*iter).second);
+    new_sst_builder.add((*iter).first, (*iter).second, 0);
     ++iter;
 
     if (new_sst_builder.estimated_size() >= target_sst_size) {
@@ -448,39 +463,59 @@ size_t LSMEngine::get_sst_size(size_t level) {
 }
 
 // *********************** LSM ***********************
-LSM::LSM(std::string path) : engine(path) {}
+LSM::LSM(std::string path)
+    : engine(std::make_shared<LSMEngine>(path)),
+      tran_manager_(std::make_shared<TranManager>(path)) {
+  tran_manager_->set_engine(engine);
+}
 
 LSM::~LSM() = default;
 
 std::optional<std::string> LSM::get(const std::string &key) {
-  return engine.get(key);
+  auto tranc_id = tran_manager_->getNextTransactionId();
+  return engine->get(key, tranc_id);
 }
 
 void LSM::put(const std::string &key, const std::string &value) {
-  engine.put(key, value);
+  auto tranc_id = tran_manager_->getNextTransactionId();
+  engine->put(key, value, tranc_id);
 }
 
 void LSM::put_batch(
     const std::vector<std::pair<std::string, std::string>> &kvs) {
-  engine.put_batch(kvs);
+  auto tranc_id = tran_manager_->getNextTransactionId();
+  engine->put_batch(kvs, tranc_id);
 }
-void LSM::remove(const std::string &key) { engine.remove(key); }
+void LSM::remove(const std::string &key) {
+  auto tranc_id = tran_manager_->getNextTransactionId();
+  engine->remove(key, tranc_id);
+}
 
 void LSM::remove_batch(const std::vector<std::string> &keys) {
-  engine.remove_batch(keys);
+  auto tranc_id = tran_manager_->getNextTransactionId();
+  engine->remove_batch(keys, tranc_id);
 }
 
-void LSM::clear() { engine.clear(); }
+void LSM::clear() { engine->clear(); }
 
-void LSM::flush() { engine.flush(); }
+void LSM::flush() { engine->flush(); }
 
-void LSM::flush_all() { engine.flush_all(); }
+void LSM::flush_all() { engine->flush_all(); }
 
-LSM::LSMIterator LSM::begin() { return engine.begin(); }
-LSM::LSMIterator LSM::end() { return engine.end(); }
+LSM::LSMIterator LSM::begin(uint64_t tranc_id) {
+  return engine->begin(tranc_id);
+}
+
+LSM::LSMIterator LSM::end() { return engine->end(); }
 
 std::optional<std::pair<TwoMergeIterator, TwoMergeIterator>>
 LSM::lsm_iters_monotony_predicate(
-    std::function<int(const std::string &)> predicate) {
-  return engine.lsm_iters_monotony_predicate(predicate);
+    uint64_t tranc_id, std::function<int(const std::string &)> predicate) {
+  return engine->lsm_iters_monotony_predicate(tranc_id, predicate);
+}
+
+// 开启一个事务
+std::shared_ptr<TranContext> LSM::begin_tran() {
+  auto tranc_context = tran_manager_->new_tranc();
+  return tranc_context;
 }

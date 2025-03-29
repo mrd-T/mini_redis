@@ -145,7 +145,7 @@ size_t SST::find_block_idx(const std::string &key) {
   return left;
 }
 
-SstIterator SST::get(const std::string &key) {
+SstIterator SST::get(const std::string &key, uint64_t tranc_id) {
   // if (key < first_key || key > last_key) {
   //   return this->end();
   // }
@@ -155,7 +155,7 @@ SstIterator SST::get(const std::string &key) {
     return this->end();
   }
 
-  return SstIterator(shared_from_this(), key);
+  return SstIterator(shared_from_this(), key, tranc_id);
 }
 
 size_t SST::num_blocks() const { return meta_entries.size(); }
@@ -168,10 +168,12 @@ size_t SST::sst_size() const { return file.size(); }
 
 size_t SST::get_sst_id() const { return sst_id; }
 
-SstIterator SST::begin() { return SstIterator(shared_from_this()); }
+SstIterator SST::begin(uint64_t tranc_id) {
+  return SstIterator(shared_from_this(), tranc_id);
+}
 
 SstIterator SST::end() {
-  SstIterator res(shared_from_this());
+  SstIterator res(shared_from_this(), 0);
   res.m_block_idx = meta_entries.size();
   res.m_block_it = nullptr;
   return res;
@@ -193,7 +195,8 @@ SSTBuilder::SSTBuilder(size_t block_size, bool has_bloom) : block(block_size) {
   last_key.clear();
 }
 
-void SSTBuilder::add(const std::string &key, const std::string &value) {
+void SSTBuilder::add(const std::string &key, const std::string &value,
+                     uint64_t tranc_id) {
   // 记录第一个key
   if (first_key.empty()) {
     first_key = key;
@@ -204,7 +207,10 @@ void SSTBuilder::add(const std::string &key, const std::string &value) {
     bloom_filter->add(key);
   }
 
-  if (block.add_entry(key, value)) {
+  bool force_write = key == last_key;
+  // 连续出现相同的 key 必须位于 同一个 block 中
+
+  if (block.add_entry(key, value, tranc_id, force_write)) {
     // block 满足容量限制, 插入成功
     last_key = key;
     return;
@@ -212,7 +218,7 @@ void SSTBuilder::add(const std::string &key, const std::string &value) {
 
   finish_block(); // 将当前 block 写入
 
-  block.add_entry(key, value);
+  block.add_entry(key, value, tranc_id, false);
   first_key = key;
   last_key = key; // 更新最后一个key
 }

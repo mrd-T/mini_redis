@@ -28,7 +28,7 @@ int main() {
     std::cout << "key1 not found" << std::endl;
   }
 
-  // 删除数据
+  // delete data
   lsm.remove("key2");
   auto value2 = lsm.get("key2");
   if (value2.has_value()) {

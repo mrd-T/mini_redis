@@ -34,10 +34,10 @@ Here is a simple example demonstrating how to use the LSM Tree for basic key-val
 #include <string>
 
 int main() {
-  // Create an LSM instance and specify the data storage directory
+  // create lsm instance, data_dir is the directory to store data
   LSM lsm("example_data");
 
-  // Insert data
+  // put data
   lsm.put("key1", "value1");
   lsm.put("key2", "value2");
   lsm.put("key3", "value3");
@@ -59,7 +59,7 @@ int main() {
     std::cout << "key1 not found" << std::endl;
   }
 
-  // Delete data
+  // 删除数据
   lsm.remove("key2");
   auto value2 = lsm.get("key2");
   if (value2.has_value()) {
@@ -68,11 +68,21 @@ int main() {
     std::cout << "key2 not found" << std::endl;
   }
 
-  // Iterate over all data
+  // iterator
   std::cout << "All key-value pairs:" << std::endl;
-  for (auto it = lsm.begin(); it != lsm.end(); ++it) {
+  // begin(id): id means transaction id, 0 means disable mvcc
+  for (auto it = lsm.begin(0); it != lsm.end(); ++it) {
     std::cout << it->first << ": " << it->second << std::endl;
   }
+
+  // transaction
+  auto tranc_hanlder = lsm.begin_tran();
+  tranc_hanlder->put("xxx", "yyy");
+  tranc_hanlder->put("yyy", "xxx");
+  tranc_hanlder->commit();
+
+  auto res = lsm.get("xxx");
+  std::cout << "xxx: " << res.value() << std::endl;
 
   return 0;
 }

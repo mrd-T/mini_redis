@@ -159,9 +159,9 @@ size_t SST::find_block_idx(const std::string &key) {
 }
 
 SstIterator SST::get(const std::string &key, uint64_t tranc_id) {
-  // if (key < first_key || key > last_key) {
-  //   return this->end();
-  // }
+  if (key < first_key || key > last_key) {
+    return this->end();
+  }
 
   // 在布隆过滤器判断key是否存在
   if (bloom_filter != nullptr && !bloom_filter->possibly_contains(key)) {

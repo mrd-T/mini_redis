@@ -142,8 +142,9 @@ The performance of the wrapper redis server is not very good, but it is still fa
   - [x] MVCC
   - [ ] Snapshot
   - [x] Isolation Level
-    - [ ] Read Uncommitted
-    - [x] Read Committed (Default)
+    - [x] Read Uncommitted
+    - [x] Read Committed
+    - [x] Repeatable Read (Default)
     - [ ] Serializable
 - [x] Redis
   - [x] Fundamental KV Operations

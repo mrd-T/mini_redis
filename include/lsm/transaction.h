@@ -11,6 +11,13 @@
 #include <unordered_map>
 #include <vector>
 
+enum class IsolationLevel {
+  READ_UNCOMMITTED,
+  READ_COMMITTED,
+  REPEATABLE_READ,
+  SERIALIZABLE
+};
+
 class LSMEngine;
 class TranManager;
 
@@ -26,7 +33,7 @@ public:
 
   // ! test_fail = true 是测试中手动触发的崩溃
   bool commit(bool test_fail = false);
-  void abort();
+  bool abort();
 
   std::shared_ptr<LSMEngine> engine_;
   std::shared_ptr<TranManager> tranManager_;
@@ -35,11 +42,20 @@ public:
   std::unordered_map<std::string, std::string> temp_map_;
   bool isCommited = false;
   bool isAborted = false;
+
+private:
+  std::unordered_map<std::string,
+                     std::optional<std::pair<std::string, uint64_t>>>
+      read_map_;
+  std::unordered_map<std::string,
+                     std::optional<std::pair<std::string, uint64_t>>>
+      rollback_map_;
 };
 
 class TranManager : public std::enable_shared_from_this<TranManager> {
 public:
-  TranManager(std::string data_dir);
+  TranManager(std::string data_dir, enum IsolationLevel isolation_level =
+                                        IsolationLevel::REPEATABLE_READ);
   ~TranManager();
   void init_new_wal();
   void set_engine(std::shared_ptr<LSMEngine> engine);
@@ -59,6 +75,7 @@ public:
   std::string get_tranc_id_file_path();
   void write_tranc_id_file();
   void read_tranc_id_file();
+  enum IsolationLevel isolation_level();
   // void flusher();
 
 private:
@@ -66,6 +83,7 @@ private:
   std::shared_ptr<LSMEngine> engine_;
   std::shared_ptr<WAL> wal;
   std::string data_dir_;
+  enum IsolationLevel isolation_level_;
   // std::atomic<bool> flush_thread_running_ = true;
   std::atomic<uint64_t> nextTransactionId_ = 1;
   std::atomic<uint64_t> max_flushed_tranc_id_ = 0;

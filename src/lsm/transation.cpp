@@ -19,26 +19,98 @@ TranContext::TranContext(uint64_t tranc_id, std::shared_ptr<LSMEngine> engine,
 }
 
 void TranContext::put(const std::string &key, const std::string &value) {
+  auto isolation_level = tranManager_->isolation_level();
+
+  // 所有隔离级别都需要先写入 operations 中
   operations.emplace_back(Record::putRecord(this->tranc_id_, key, value));
+
+  if (isolation_level == IsolationLevel::READ_UNCOMMITTED) {
+    // 1 如果隔离级别是 READ_UNCOMMITTED, 直接写入 memtable
+    // 先查询以前的记录, 因为回滚时可能需要
+    auto prev_record = engine_->get(key, 0);
+    rollback_map_[key] = prev_record;
+    engine_->put(key, value, tranc_id_);
+    return;
+  }
+
+  // 2 其他隔离级别需要 暂存到 temp_map_ 中, 统一提交后才在数据库中生效
   temp_map_[key] = value;
 }
 
 void TranContext::remove(const std::string &key) {
+  auto isolation_level = tranManager_->isolation_level();
+
+  // 所有隔离级别都需要先写入 operations 中
   operations.emplace_back(Record::deleteRecord(this->tranc_id_, key));
+
+  if (isolation_level == IsolationLevel::READ_UNCOMMITTED) {
+    // 1 如果隔离级别是 READ_UNCOMMITTED, 直接写入 memtable
+    // 先查询以前的记录, 因为回滚时可能需要
+    auto prev_record = engine_->get(key, 0);
+    rollback_map_[key] = prev_record;
+    engine_->remove(key, tranc_id_);
+    return;
+  }
+
+  // 2 其他隔离级别需要 暂存到 temp_map_ 中, 统一提交后才在数据库中生效
   temp_map_[key] = "";
 }
 
 std::optional<std::string> TranContext::get(const std::string &key) {
-  // 先就近在当前操作的临时缓存中查找
+  auto isolation_level = tranManager_->isolation_level();
+
+  // 1 所有隔离级别先就近在当前操作的临时缓存中查找
   if (temp_map_.find(key) != temp_map_.end()) {
+    // READ_UNCOMMITTED 随单次操作更新数据库, 不需要最后的统一更新
+    // 这一步骤肯定会自然跳过的
     return temp_map_[key];
   }
-  // 否则使用 engine 查询
-  auto query = engine_->get(key, this->tranc_id_);
-  return query->first;
+
+  // 2 否则使用 engine 查询
+  std::optional<std::pair<std::string, uint64_t>> query;
+  if (isolation_level == IsolationLevel::READ_UNCOMMITTED) {
+    // 2.1 如果隔离级别是 READ_UNCOMMITTED, 使用 engine
+    // 查询时不需要判断 tranc_id, 直接获取最新值
+    query = engine_->get(key, 0);
+  } else if (isolation_level == IsolationLevel::READ_COMMITTED) {
+    // 2.2 如果隔离级别是 READ_COMMITTED, 使用 engine
+    // 查询时判断 tranc_id
+    query = engine_->get(key, this->tranc_id_);
+  } else {
+    // 2.2 如果隔离级别是 SERIALIZABLE 或 REPEATABLE_READ, 第一次使用 engine
+    // 查询后还需要暂存
+    if (read_map_.find(key) != read_map_.end()) {
+      query = read_map_[key];
+    } else {
+      query = engine_->get(key, this->tranc_id_);
+      read_map_[key] = query;
+    }
+  }
+  if (query.has_value()) {
+    return query->first;
+  }
+  return std::nullopt;
 }
 
 bool TranContext::commit(bool test_fail) {
+  auto isolation_level = tranManager_->isolation_level();
+
+  if (isolation_level == IsolationLevel::READ_UNCOMMITTED) {
+    // READ_UNCOMMITTED 随单次操作更新数据库, 不需要最后的统一更新
+    // 因此也不需要使用到后面的锁保证正确性
+    operations.emplace_back(Record::commitRecord(this->tranc_id_));
+
+    // 先刷入wal
+    auto wal_success = tranManager_->write_to_wal(operations);
+
+    if (!wal_success) {
+      throw std::runtime_error("write to wal failed");
+    }
+    isCommited = true;
+    tranManager_->update_max_finished_tranc_id(tranc_id_);
+    return true;
+  }
+
   // commit 需要检查所有的操作是否合法
 
   // 遍历所有的记录, 判断是否合法
@@ -46,43 +118,53 @@ bool TranContext::commit(bool test_fail) {
   // TODO: 目前为检查冲突, 全局获取了读锁, 后续考虑性能优化方案
 
   MemTable &memtable = engine_->memtable;
-  std::unique_lock<std::shared_mutex> rlock1(memtable.frozen_mtx);
-  std::unique_lock<std::shared_mutex> rlock2(memtable.cur_mtx);
-  std::shared_lock<std::shared_mutex> rlock3(engine_->ssts_mtx);
+  std::unique_lock<std::shared_mutex> wlock1(memtable.frozen_mtx);
+  std::unique_lock<std::shared_mutex> wlock2(memtable.cur_mtx);
 
-  for (auto &[k, v] : temp_map_) {
-    // 步骤1: 先在内存表中判断该 key 是否冲突
+  if (isolation_level == IsolationLevel::REPEATABLE_READ ||
+      isolation_level == IsolationLevel::SERIALIZABLE) {
+    // REPEATABLE_READ 需要校验冲突
+    // TODO: 目前 SERIALIZABLE 还没有实现, 逻辑和 REPEATABLE_READ 相同
 
-    // ! 注意第二个参数设置为0, 表示忽略事务可见性的查询
-    auto res = memtable.get_(k, 0);
-    if (res.is_valid() && res.get_tranc_id() > tranc_id_) {
-      // 数据库中存在相同的 key , 且其 tranc_id 大于当前 tranc_id
-      // 表示更晚创建的事务修改了相同的key, 并先提交, 发生了冲突
-      // 需要终止事务
-      isAborted = true;
-      return false;
-    } else {
-      // 步骤2: 判断sst中是否是否存在冲突
-      if (tranManager_->get_max_flushed_tranc_id() <= tranc_id_) {
-        // sst 中最大的 tranc_id 小于当前 tranc_id, 没有冲突
-        continue;
-      }
+    // 只要需要校验的 隔离级别 需要加sst的锁
+    std::shared_lock<std::shared_mutex> rlock3(engine_->ssts_mtx);
 
-      // 否则要查询具体的key是否冲突
+    for (auto &[k, v] : temp_map_) {
+      // 步骤1: 先在内存表中判断该 key 是否冲突
+
       // ! 注意第二个参数设置为0, 表示忽略事务可见性的查询
-      auto res = engine_->sst_get_(k, 0);
-      if (res.has_value()) {
-        auto [v, tranc_id] = res.value();
-        if (tranc_id > tranc_id_) {
-          // 数据库中存在相同的 key , 且其 tranc_id 大于当前 tranc_id
-          // 表示更晚创建的事务修改了相同的key, 并先提交, 发生了冲突
-          // 需要终止事务
-          isAborted = true;
-          return false;
+      auto res = memtable.get_(k, 0);
+      if (res.is_valid() && res.get_tranc_id() > tranc_id_) {
+        // 数据库中存在相同的 key , 且其 tranc_id 大于当前 tranc_id
+        // 表示更晚创建的事务修改了相同的key, 并先提交, 发生了冲突
+        // 需要终止事务
+        isAborted = true;
+        return false;
+      } else {
+        // 步骤2: 判断sst中是否是否存在冲突
+        if (tranManager_->get_max_flushed_tranc_id() <= tranc_id_) {
+          // sst 中最大的 tranc_id 小于当前 tranc_id, 没有冲突
+          continue;
+        }
+
+        // 否则要查询具体的key是否冲突
+        // ! 注意第二个参数设置为0, 表示忽略事务可见性的查询
+        auto res = engine_->sst_get_(k, 0);
+        if (res.has_value()) {
+          auto [v, tranc_id] = res.value();
+          if (tranc_id > tranc_id_) {
+            // 数据库中存在相同的 key , 且其 tranc_id 大于当前 tranc_id
+            // 表示更晚创建的事务修改了相同的key, 并先提交, 发生了冲突
+            // 需要终止事务
+            isAborted = true;
+            return false;
+          }
         }
       }
     }
   }
+
+  // 其他隔离级别不检查, 直接运行到这里
 
   // 校验全部通过, 可以刷入
   operations.emplace_back(Record::commitRecord(this->tranc_id_));
@@ -94,7 +176,9 @@ bool TranContext::commit(bool test_fail) {
     throw std::runtime_error("write to wal failed");
   }
 
+  // 将暂存数据应用到数据库
   if (!test_fail) {
+    // 这里是手动调用 memtable 的无锁版本的 put_, 因为之前手动加了写锁
     for (auto &[k, v] : temp_map_) {
       memtable.put_(k, v, tranc_id_);
     }
@@ -105,8 +189,44 @@ bool TranContext::commit(bool test_fail) {
   return true;
 }
 
+bool TranContext::abort() {
+  auto isolation_level = tranManager_->isolation_level();
+  if (isolation_level == IsolationLevel::READ_UNCOMMITTED) {
+    // 需要手动恢复之前的更改
+    // TODO: 需要使用批量化操作优化性能
+    for (auto &[k, res] : rollback_map_) {
+      if (res.has_value()) {
+        engine_->put(k, res.value().first, res.value().second);
+      } else {
+        // 之前本就不存在, 需要移除当前事务的新增操作
+        engine_->remove(k, tranc_id_);
+      }
+    }
+    isAborted = true;
+
+    return true;
+  }
+  // ! 由于目前 records 是在 commit 时统一刷入 wal 的, 因此这个情况下, abort
+  // ! 简单丢弃 operations 即可 ! 后续会将 records 分批次写入 wal
+  // ! 这时就需要加上 ! rollback 标记了, 执行下面注释的逻辑
+
+  // operations.emplace_back(Record::rollbackRecord(this->tranc_id_));
+  // // 先刷入wal
+  // auto wal_success = tranManager_->write_to_wal(operations);
+
+  // if (!wal_success) {
+  //   throw std::runtime_error("write to wal failed");
+  // }
+
+  isAborted = true;
+
+  return true;
+}
+
 // *********************** TranManager ***********************
-TranManager::TranManager(std::string data_dir) : data_dir_(data_dir) {
+TranManager::TranManager(std::string data_dir,
+                         enum IsolationLevel isolation_level)
+    : data_dir_(data_dir), isolation_level_(isolation_level) {
   auto file_path = get_tranc_id_file_path();
 
   // 判断文件是否存在
@@ -161,6 +281,8 @@ void TranManager::read_tranc_id_file() {
   max_flushed_tranc_id_ = tranc_id_file_.read_uint64(sizeof(uint64_t));
   max_finished_tranc_id_ = tranc_id_file_.read_uint64(sizeof(uint64_t) * 2);
 }
+
+enum IsolationLevel TranManager::isolation_level() { return isolation_level_; }
 
 void TranManager::update_max_finished_tranc_id(uint64_t tranc_id) {
   // max_finished_tranc_id_ 对于崩溃恢复没有作用,

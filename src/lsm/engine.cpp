@@ -58,8 +58,7 @@ LSMEngine::LSMEngine(std::string path) : data_dir(path) {
       // 加载SST文件, 初始化时需要加写锁
       std::unique_lock<std::shared_mutex> lock(ssts_mtx); // 写锁
 
-      cur_max_sst_id =
-          std::max(sst_id, cur_max_sst_id); // 记录目前最大的 sst_id
+      next_sst_id = std::max(sst_id, next_sst_id); // 记录目前最大的 sst_id
       cur_max_level = std::max(level, cur_max_level); // 记录目前最大的 level
       std::string sst_path = get_sst_path(sst_id, level);
       auto sst = SST::open(sst_id, FileObj::open(sst_path, false), block_cache);
@@ -67,6 +66,8 @@ LSMEngine::LSMEngine(std::string path) : data_dir(path) {
 
       level_sst_ids[level].push_back(sst_id);
     }
+
+    next_sst_id++; // 现有的最大 sst_id 自增后才是下一个分配的 sst_id
 
     for (auto &[level, sst_id_list] : level_sst_ids) {
       std::sort(sst_id_list.begin(), sst_id_list.end());
@@ -276,7 +277,7 @@ uint64_t LSMEngine::flush() {
 
   // 2. 创建新的 SST ID
   // 链表头部存储的是最新刷入的sst, 其sst_id最大
-  size_t new_sst_id = cur_max_sst_id++;
+  size_t new_sst_id = next_sst_id++;
 
   // 3. 准备 SSTBuilder
   SSTBuilder builder(LSM_BLOCK_SIZE, true); // 4KB block size
@@ -501,7 +502,7 @@ LSMEngine::gen_sst_from_iter(BaseIterator &iter, size_t target_sst_size,
     ++iter;
 
     if (new_sst_builder.estimated_size() >= target_sst_size) {
-      size_t sst_id = cur_max_sst_id++; // TODO: 后续优化并发性
+      size_t sst_id = next_sst_id++; // TODO: 后续优化并发性
       std::string sst_path = get_sst_path(sst_id, target_level);
       auto new_sst = new_sst_builder.build(sst_id, sst_path, this->block_cache);
       new_ssts.push_back(new_sst);
@@ -509,7 +510,7 @@ LSMEngine::gen_sst_from_iter(BaseIterator &iter, size_t target_sst_size,
     }
   }
   if (new_sst_builder.estimated_size() > 0) {
-    size_t sst_id = cur_max_sst_id++; // TODO: 后续优化并发性
+    size_t sst_id = next_sst_id++; // TODO: 后续优化并发性
     std::string sst_path = get_sst_path(sst_id, target_level);
     auto new_sst = new_sst_builder.build(sst_id, sst_path, this->block_cache);
     new_ssts.push_back(new_sst);

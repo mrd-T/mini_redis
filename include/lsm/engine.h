@@ -20,7 +20,7 @@ public:
   std::unordered_map<size_t, std::shared_ptr<SST>> ssts;
   std::shared_mutex ssts_mtx;
   std::shared_ptr<BlockCache> block_cache;
-  size_t cur_max_sst_id = 0;
+  size_t next_sst_id = 0;
   size_t cur_max_level = 0;
 
 public:

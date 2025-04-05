@@ -2,6 +2,10 @@
 
 The developing posts can be found in my [blog](https://tonixwd.github.io/categories/%E9%A1%B9%E7%9B%AE/) or [zhihu](https://www.zhihu.com/column/c_1867534978344161280).
 
+You can also join the QQ group for discussion: 
+
+<img src="./doc/qrcode_1743840149747.jpg" height="400">
+
 ## Build Configuration
 
 The project uses xmake as the build system. Below is the xmake configuration for building the project and running tests:
@@ -118,7 +122,7 @@ ZADD: 126422.25 requests per second, p50=0.615 msec
 The performance of the wrapper redis server is not very good, but it is still fast enough for most use cases. Howerver, the redis server is built based on the LSM Tree KV engine, so it consists of some redundancy locks. If you use the LSM Tree KV engine directly, you can get much better performance. The reason why we use `redis-benchmark` to test the compatible redis api but not the actual KV engine API is that writing a sophisticated testing tool costs much time so we choose to use the existed `redis-benchmark`.
 
 
-# TODO
+# Features && TODO
 - [x] SkipList
   - [x] get/put/remove
   - [x] iterator

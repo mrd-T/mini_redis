@@ -7,6 +7,7 @@ add_rules("mode.debug", "mode.release")
 add_requires("gtest") -- 添加gtest依赖
 -- 添加Muduo库
 add_requires("muduo")
+add_requires("pybind11")
 
 if is_mode("debug") then
     add_defines("LSM_DEBUG")
@@ -155,27 +156,39 @@ target("test_wal")
     add_includedirs("include")
     add_packages("gtest")
 
--- 定义 示例
-target("example")
-    set_kind("binary")
-    add_files("example/main.cpp")
+-- -- 定义 示例
+-- target("example")
+--     set_kind("binary")
+--     add_files("example/main.cpp")
+--     add_deps("lsm_shared")
+--     add_includedirs("include", {public = true})
+--     set_targetdir("$(buildir)/bin")
+
+-- -- 定义 debug 示例
+-- target("debug")
+--     set_kind("binary")
+--     add_files("example/debug.cpp")
+--     add_deps("lsm_shared")
+--     add_includedirs("include", {public = true})
+--     set_targetdir("$(buildir)/bin")
+
+-- -- 定义server
+-- target("server")
+--     set_kind("binary")
+--     add_files("server/src/*.cpp")
+--     add_deps("redis")
+--     add_includedirs("include", {public = true})
+--     add_packages("muduo")
+--     set_targetdir("$(buildir)/bin")
+
+target("lsm_pybind")
+    set_kind("shared")
+    add_files("sdk/lsm_pybind.cpp")
+    add_packages("pybind11")
     add_deps("lsm_shared")
     add_includedirs("include", {public = true})
-    set_targetdir("$(buildir)/bin")
-
--- 定义 debug 示例
-target("debug")
-    set_kind("binary")
-    add_files("example/debug.cpp")
-    add_deps("lsm_shared")
-    add_includedirs("include", {public = true})
-    set_targetdir("$(buildir)/bin")
-
--- 定义server
-target("server")
-    set_kind("binary")
-    add_files("server/src/*.cpp")
-    add_deps("redis")
-    add_includedirs("include", {public = true})
-    add_packages("muduo")
-    set_targetdir("$(buildir)/bin")
+    set_targetdir("$(buildir)/lib")
+    set_filename("lsm_pybind.so")  -- 确保生成的文件名为 lsm_pybind.so
+    add_ldflags("-Wl,-rpath,$ORIGIN")
+    add_defines("TONILSM_EXPORT=__attribute__((visibility(\"default\")))")
+    add_cxxflags("-fvisibility=hidden")  -- 隐藏非导出符号

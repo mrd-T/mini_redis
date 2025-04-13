@@ -1,3 +1,8 @@
 .vscode
 .xmake
 build
+sdk/tonilsm/dist
+sdk/tonilsm/build
+sdk/tonilsm/tonilsm/core/lib
+sdk/tonilsm/tonilsm.egg-info
+*__pycache__*

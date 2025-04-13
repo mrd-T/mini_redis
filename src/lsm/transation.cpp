@@ -14,7 +14,8 @@
 // *********************** TranContext ***********************
 TranContext::TranContext(uint64_t tranc_id, std::shared_ptr<LSMEngine> engine,
                          std::shared_ptr<TranManager> tranManager)
-    : tranc_id_(tranc_id), engine_(engine), tranManager_(tranManager) {
+    : tranc_id_(tranc_id), engine_(std::move(engine)),
+      tranManager_(std::move(tranManager)) {
   operations.emplace_back(Record::createRecord(tranc_id_));
 }
 
@@ -251,8 +252,9 @@ void TranManager::init_new_wal() {
 }
 
 void TranManager::set_engine(std::shared_ptr<LSMEngine> engine) {
-  engine_ = engine;
+  engine_ = std::move(engine);
 }
+
 TranManager::~TranManager() { write_tranc_id_file(); }
 
 void TranManager::write_tranc_id_file() {
@@ -291,11 +293,10 @@ void TranManager::update_max_finished_tranc_id(uint64_t tranc_id) {
   uint64_t expected = max_finished_tranc_id_.load(std::memory_order_relaxed);
   while (tranc_id > expected) {
     if (max_finished_tranc_id_.compare_exchange_weak(
-            expected, tranc_id, std::memory_order_acq_rel)) {
+            expected, tranc_id, std::memory_order_acq_rel,
+            std::memory_order_relaxed)) {
       break;
     }
-    // 重新加载最新值
-    expected = max_finished_tranc_id_.load(std::memory_order_relaxed);
   }
 }
 
@@ -305,11 +306,10 @@ void TranManager::update_max_flushed_tranc_id(uint64_t tranc_id) {
   uint64_t expected = max_flushed_tranc_id_.load(std::memory_order_relaxed);
   while (tranc_id > expected) {
     if (max_flushed_tranc_id_.compare_exchange_weak(
-            expected, tranc_id, std::memory_order_acq_rel)) {
+            expected, tranc_id, std::memory_order_acq_rel,
+            std::memory_order_relaxed)) {
       break;
     }
-    // 重新加载最新值
-    expected = max_flushed_tranc_id_.load(std::memory_order_relaxed);
   }
   write_tranc_id_file();
 }

@@ -259,7 +259,6 @@ bool RedisWrapper::expire_set_clean(
       lsm->remove_batch(remove_vec);
     }
     return true;
-    return true;
   }
   return false;
 }

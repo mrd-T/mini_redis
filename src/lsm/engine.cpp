@@ -30,7 +30,7 @@ LSMEngine::LSMEngine(std::string path) : data_dir(path) {
 
       std::string filename = entry.path().filename().string();
       // SST文件名格式为: sst_{id}.level
-      if (filename.substr(0, 4) != "sst_") {
+      if (!filename.starts_with("sst_")) {
         continue;
       }
 
@@ -42,7 +42,7 @@ LSMEngine::LSMEngine(std::string path) : data_dir(path) {
 
       // 提取 level
       std::string level_str =
-          filename.substr(dot_pos + 1, filename.length() - 1 - dot_pos); //
+          filename.substr(dot_pos + 1, filename.length() - 1 - dot_pos);
       if (level_str.empty()) {
         continue;
       }
@@ -103,7 +103,7 @@ LSMEngine::get(const std::string &key, uint64_t tranc_id) {
   for (auto &sst_id : level_sst_ids[0]) {
     //  中的 sst_id 是按从大到小的顺序排列,
     // sst_id 越大, 表示是越晚刷入的, 优先查询
-    auto sst = ssts[sst_id];
+    auto &sst = ssts[sst_id];
     auto sst_iterator = sst->get(key, tranc_id);
     if (sst_iterator != sst->end()) {
       if ((sst_iterator)->second.size() > 0) {
@@ -125,7 +125,7 @@ LSMEngine::get(const std::string &key, uint64_t tranc_id) {
     size_t right = l_sst_ids.size();
     while (left < right) {
       size_t mid = left + (right - left) / 2;
-      auto sst = ssts[l_sst_ids[mid]];
+      auto &sst = ssts[l_sst_ids[mid]];
       if (sst->get_first_key() <= key && key <= sst->get_last_key()) {
         // 如果sst_id在中, 则在sst中查询
         auto sst_iterator = sst->get(key, tranc_id);

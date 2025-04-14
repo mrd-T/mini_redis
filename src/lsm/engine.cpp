@@ -254,11 +254,16 @@ void LSMEngine::clear() {
   level_sst_ids.clear();
   ssts.clear();
   // 清空当前文件夹的所有内容
-  for (const auto &entry : std::filesystem::directory_iterator(data_dir)) {
-    if (!entry.is_regular_file()) {
-      continue;
+  try {
+    for (const auto &entry : std::filesystem::directory_iterator(data_dir)) {
+      if (!entry.is_regular_file()) {
+        continue;
+      }
+      std::filesystem::remove(entry.path());
     }
-    std::filesystem::remove(entry.path());
+  } catch (const std::filesystem::filesystem_error &e) {
+    // 处理文件系统错误
+    std::cerr << "Error clearing directory: " << e.what() << std::endl;
   }
 }
 

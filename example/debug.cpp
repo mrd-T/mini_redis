@@ -3,8 +3,8 @@
 #include <string>
 
 int main() {
-  LSM lsm("/tmp/lsm");
+  LSM lsm("test");
   // change the data manually
-  lsm.put("key02", "value02");
-  lsm.flush_all();
+  lsm.put("k1", "v1");
+  lsm.clear();
 }

@@ -53,5 +53,7 @@ int main() {
   auto res = lsm.get("xxx");
   std::cout << "xxx: " << res.value() << std::endl;
 
+  lsm.clear();
+
   return 0;
 }

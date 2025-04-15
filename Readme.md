@@ -191,6 +191,38 @@ The performance of the wrapper redis server is not very good, but it is still fa
 
 > Only commonly used redis commands are supported. The other implementations can refer to `src/redis_wrapper/redis_wrapper.cpp`. If you need more commands, please submit a pull request. 
 
-## License
+# Develop
+If you want to contribute to the project, please check the [issues](https://github.com/ToniXWD/toni-lsm/issues). Also, you can concat me by emial: xwdtoni@126.com
 
+## Redis Resp
+Currently, the project only supports a subset of the Redis Resp protocol. The supported commands are listed above. You can add more commands by following the existing implementations in `src/redis_wrapper/redis_wrapper.cpp`.
+
+## SDK Development
+If you want to develop a new SDK for the project, please refer to the existing SDKs in `src/sdk/`. Curently, we only have a Python SDK. You can use build the python sdk as following:
+```bash
+cd sdk
+./build_python_sdk.sh
+```
+Then you can use the SDK in your Python code:
+```python
+import tonilsm
+
+db = tonilsm.LSM("test2_db")
+db.put(b"tomxx", b"catxx")
+db.get("tomxx")
+
+t = db.begin_tran()
+t.get('tomxx')
+t.put('tomxx','1')
+t.get('tomxx')
+t.commit()
+
+db.get("tomxx")
+```
+We welcome contributions for developing SDKs in other programming languages.
+
+## Lab Construction
+I have a plan to make this project a step-to-step Lab like `CMU15445` or `MIT 6.824`. If you are interested in this project, please feel free to join us. 
+
+# License
 This project is licensed under the MIT License.

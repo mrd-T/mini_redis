@@ -12,7 +12,7 @@ t = db.begin_tran()
 t.get('tomxx')
 # 'catxx'
 
-t.put('tomxx','1')
+t.put('tomxx', '1')
 
 t.get('tomxx')
 '1'
@@ -21,7 +21,7 @@ db.get("tomxx")
 # 'catxx'
 
 t.commit()
-True
+# True
 
 db.get("tomxx")
 # '1'

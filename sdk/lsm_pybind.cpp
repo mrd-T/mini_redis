@@ -60,7 +60,7 @@ PYBIND11_MODULE(lsm_pybind, m) {
       // 事务
       .def("begin_tran", &LSM::begin_tran, "Start a transaction")
       // 其他方法
-      //  .def("clear", &LSM::clear, "Clear all data") // ! Fix bugs
+      .def("clear", &LSM::clear, "Clear all data") // ! Fix bugs
       .def("flush", &LSM::flush, "Flush memory table to disk")
       .def("flush_all", &LSM::flush_all, "Flush all pending data");
 }

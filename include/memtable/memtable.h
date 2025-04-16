@@ -45,6 +45,8 @@ public:
                  uint64_t tranc_id);
 
   SkipListIterator get(const std::string &key, uint64_t tranc_id);
+  std::vector<std::pair<std::string, std::optional<std::pair<std::string, uint64_t>>>>
+                    get_batch(const std::vector<std::string> &keys, uint64_t tranc_id);
   void remove(const std::string &key, uint64_t tranc_id);
   void remove_batch(const std::vector<std::string> &keys, uint64_t tranc_id);
 

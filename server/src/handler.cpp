@@ -174,7 +174,7 @@ std::string ttl_handler(std::vector<std::string> &args, RedisWrapper &engine) {
 }
 // **************************** 哈希操作 ****************************
 std::string hset_handler(std::vector<std::string> &args, RedisWrapper &engine) {
-  if (args.size() != 4)
+  if (args.size() < 4)
     return "-ERR wrong number of arguments for 'HSET' command\r\n";
 #ifdef LSM_DEBUG
   LOG_INFO << "command is: " << args[0] << " " << args[1] << " " << args[2]

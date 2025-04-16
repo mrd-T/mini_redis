@@ -11,6 +11,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <unordered_set>
 
 // Helper functions
 RedisWrapper::RedisWrapper(const std::string &db_path) {
@@ -292,7 +293,20 @@ std::string RedisWrapper::ttl(std::vector<std::string> &args) {
 
 // 哈希操作
 std::string RedisWrapper::hset(std::vector<std::string> &args) {
-  return redis_hset(args[1], args[2], args[3]);
+  // return redis_hset(args[1], args[2], args[3]);
+  if (args.size() < 4 || (args.size()-1) % 2 != 1) {
+    return "-ERR wrong number of arguments for 'hset' command\r\n";
+  }
+
+  const std::string& key = args[1];
+  std::vector<std::pair<std::string, std::string>> fieldValues;
+
+  // 从第2个参数开始，每两个为一组 field-value
+  for (size_t i = 2; i < args.size(); i += 2) {
+    if (i+1 >= args.size()) break; // 防止越界
+    fieldValues.emplace_back(args[i], args[i+1]);
+  }
+  return redis_hset_batch(key, fieldValues);
 }
 
 std::string RedisWrapper::hget(std::vector<std::string> &args) {
@@ -541,6 +555,38 @@ std::string RedisWrapper::redis_ttl(std::string &key) {
 }
 
 // 哈希操作
+std::string RedisWrapper::redis_hset_batch(const std::string &key, std::vector<std::pair<std::string, std::string>> &field_value_pairs){
+  std::shared_lock<std::shared_mutex> rlock(redis_mtx);
+  bool is_expired = expire_hash_clean(key, rlock);
+
+  if (!is_expired) {
+    rlock.unlock();
+  }
+  std::unique_lock<std::shared_mutex> lock(redis_mtx);
+
+  // 获取现有字段列表
+  auto field_list_opt = lsm->get(key);
+  std::vector<std::string> field_list = get_fileds_from_hash_value(field_list_opt);
+  
+  int added_count = 0;
+  std::unordered_set<std::string> existing_fields(field_list.begin(), field_list.end());
+
+  // 批量处理字段
+  for (const auto& [field, value] : field_value_pairs) {
+    std::string field_key = get_hash_filed_key(key, field);
+    lsm->put(field_key, value);
+
+    if (!existing_fields.count(field)) {
+      field_list.push_back(field);
+      existing_fields.insert(field);
+      added_count++;
+    }
+  }
+
+  // 更新字段列表
+  lsm->put(key, get_hash_value_from_fields(field_list));
+  return ":" + std::to_string(added_count) + "\r\n";
+}
 std::string RedisWrapper::redis_hset(const std::string &key,
                                      const std::string &field,
                                      const std::string &value) {

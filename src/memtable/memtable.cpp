@@ -109,6 +109,66 @@ SkipListIterator MemTable::get_(const std::string &key, uint64_t tranc_id) {
   return SkipListIterator{};
 }
 
+std::vector<std::pair<std::string, std::optional<std::pair<std::string, uint64_t>>>>
+    MemTable::get_batch(const std::vector<std::string> &keys, uint64_t tranc_id) {
+    std::vector<std::pair<std::string, std::optional<std::pair<std::string, uint64_t>>>> results;
+    results.reserve(keys.size());
+
+    // 1. 先获取活跃表的锁
+    std::shared_lock<std::shared_mutex> slock1(cur_mtx);
+    for (const auto &key : keys) {
+        auto cur_res = cur_get_(key, tranc_id);
+        if (cur_res.is_valid()) {
+            if (cur_res.get_value().size() > 0) {
+                // 值存在且不为空
+                results.emplace_back(key, std::make_pair(cur_res.get_value(), cur_res.get_tranc_id()));
+            } else {
+                // 空值表示被删除
+                results.emplace_back(key, std::nullopt);
+            }
+        } else {
+            // 如果活跃表中未找到，标记为待查冻结表
+            results.emplace_back(key, std::nullopt);
+        }
+    }
+
+    // 2. 如果某些键在活跃表中未找到，获取冻结表的锁
+    bool need_frozen_lookup = false;
+    for (const auto &[key, value] : results) {
+        if (!value.has_value()) {
+            need_frozen_lookup = true;
+            break;
+        }
+    }
+
+    if (!need_frozen_lookup) { // 不需要查冻结表
+        slock1.unlock();
+        return results;
+    }
+
+    slock1.unlock(); // 释放活跃表的锁
+    std::shared_lock<std::shared_mutex> slock2(frozen_mtx);
+    for (auto &[key, value] : results) {
+        if (value.has_value()) {
+            continue; // 已在活跃表中找到，跳过
+        }
+
+        auto frozen_result = frozen_get_(key, tranc_id);
+        if (frozen_result.is_valid()) {
+            if (frozen_result.get_value().size() > 0) {
+                // 值存在且不为空
+                value = std::make_pair(frozen_result.get_value(), frozen_result.get_tranc_id());
+            } else {
+                // 空值表示被删除
+                value = std::nullopt;
+            }
+        }
+    }
+
+
+    return results;
+}
+
 void MemTable::remove_(const std::string &key, uint64_t tranc_id) {
   // 删除的方式是写入空值
   current_table->put(key, "", tranc_id);

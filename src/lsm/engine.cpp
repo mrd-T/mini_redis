@@ -152,6 +152,106 @@ LSMEngine::get(const std::string &key, uint64_t tranc_id) {
   return std::nullopt;
 }
 
+std::vector<std::pair<std::string, std::optional<std::pair<std::string, uint64_t>>>>
+LSMEngine::get_batch(const std::vector<std::string> &keys, uint64_t tranc_id)
+{
+    // 1. 先从 memtable 中批量查找
+    auto results = memtable.get_batch(keys, tranc_id);
+
+    // 2. 如果所有键都在memtable 中找到，直接返回
+    bool need_search_sst= false;
+    for (const auto &[key, value] : results) {
+        if (!value.has_value()) {
+            // 需要查找
+            need_search_sst = true;
+            break;
+        }
+    }
+
+    if (!need_search_sst) 
+    {
+        return results; // 不需要查sst
+    }
+
+    // 2. 从 L0 层 SST 文件中批量查找未命中的键
+    std::shared_lock<std::shared_mutex> rlock(ssts_mtx); // 加读锁
+    for (auto &[key, value] : results)
+    {
+        for (auto &sst_id : level_sst_ids[0])
+        {
+            auto &sst = ssts[sst_id];
+            auto sst_iterator = sst->get(key, tranc_id);
+            if (sst_iterator != sst->end())
+            {
+                if (sst_iterator->second.size() > 0)
+                {
+                    // 值存在且不为空
+                    value = std::make_pair(sst_iterator->second, sst_iterator.get_tranc_id());
+                }
+                else
+                {
+                    // 空值表示被删除
+                    value = std::nullopt;
+                }
+                break; // 停止继续查找
+            }
+        }
+    }
+
+    // 3. 从其他层级 SST 文件中批量查找未命中的键
+    for (size_t level = 1; level <= cur_max_level; level++)
+    {
+        std::deque<size_t> l_sst_ids = level_sst_ids[level];
+
+        for (auto &[key, value] : results)
+        {
+            if (value.has_value()) // 已找到，跳过
+            {
+                continue;
+            }
+
+            // 二分查找确定键可能所在的 SST 文件
+            size_t left = 0;
+            size_t right = l_sst_ids.size();
+            while (left < right)
+            {
+                size_t mid = left + (right - left) / 2;
+                auto &sst = ssts[l_sst_ids[mid]];
+
+                if (sst->get_first_key() <= key && key <= sst->get_last_key())
+                {
+                    // 如果键在当前 SST 文件范围内，则在 SST 中查找
+                    auto sst_iterator = sst->get(key, tranc_id);
+                    if (sst_iterator.is_valid())
+                    {
+                        if (sst_iterator->second.size() > 0)
+                        {
+                            // 值存在且不为空
+                            value = std::make_pair(sst_iterator->second, sst_iterator.get_tranc_id());
+                        }
+                        else
+                        {
+                            // 空值表示被删除
+                            value = std::nullopt;
+                        }
+                    }
+                    break; // 停止继续查找
+                }
+                else if (sst->get_last_key() < key)
+                {
+                    left = mid + 1;
+                }
+                else
+                {
+                    right = mid;
+                }
+            }
+        }
+    }
+
+    return results;
+}
+
 std::optional<std::pair<std::string, uint64_t>>
 LSMEngine::sst_get_(const std::string &key, uint64_t tranc_id) {
 
@@ -565,6 +665,32 @@ std::optional<std::string> LSM::get(const std::string &key) {
     return res.value().first;
   }
   return std::nullopt;
+}
+
+std::vector<std::pair<std::string, std::optional<std::string>>>
+LSM::get_batch(const std::vector<std::string> &keys)
+{
+    // 1. 获取事务ID
+    auto tranc_id = tran_manager_->getNextTransactionId();
+
+    // 2. 调用 engine 的批量查询接口
+    auto batch_results = engine->get_batch(keys, tranc_id);
+
+    // 3. 构造最终结果
+    std::vector<std::pair<std::string, std::optional<std::string>>> results;
+    for (const auto &[key, value] : batch_results)
+    {
+        if (value.has_value())
+        {
+            results.emplace_back(key, value->first); // 提取值部分
+        }
+        else
+        {
+            results.emplace_back(key, std::nullopt); // 键不存在
+        }
+    }
+
+    return results;
 }
 
 void LSM::put(const std::string &key, const std::string &value) {

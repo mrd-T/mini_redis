@@ -13,14 +13,15 @@
 
 // *********************** TranContext ***********************
 TranContext::TranContext(uint64_t tranc_id, std::shared_ptr<LSMEngine> engine,
-                         std::shared_ptr<TranManager> tranManager)
+                         std::shared_ptr<TranManager> tranManager,
+                         const enum IsolationLevel &isolation_level)
     : tranc_id_(tranc_id), engine_(std::move(engine)),
-      tranManager_(std::move(tranManager)) {
+      tranManager_(std::move(tranManager)), isolation_level_(isolation_level) {
   operations.emplace_back(Record::createRecord(tranc_id_));
 }
 
 void TranContext::put(const std::string &key, const std::string &value) {
-  auto isolation_level = tranManager_->isolation_level();
+  auto isolation_level = get_isolation_level();
 
   // 所有隔离级别都需要先写入 operations 中
   operations.emplace_back(Record::putRecord(this->tranc_id_, key, value));
@@ -39,7 +40,7 @@ void TranContext::put(const std::string &key, const std::string &value) {
 }
 
 void TranContext::remove(const std::string &key) {
-  auto isolation_level = tranManager_->isolation_level();
+  auto isolation_level = get_isolation_level();
 
   // 所有隔离级别都需要先写入 operations 中
   operations.emplace_back(Record::deleteRecord(this->tranc_id_, key));
@@ -58,7 +59,7 @@ void TranContext::remove(const std::string &key) {
 }
 
 std::optional<std::string> TranContext::get(const std::string &key) {
-  auto isolation_level = tranManager_->isolation_level();
+  auto isolation_level = get_isolation_level();
 
   // 1 所有隔离级别先就近在当前操作的临时缓存中查找
   if (temp_map_.find(key) != temp_map_.end()) {
@@ -94,7 +95,7 @@ std::optional<std::string> TranContext::get(const std::string &key) {
 }
 
 bool TranContext::commit(bool test_fail) {
-  auto isolation_level = tranManager_->isolation_level();
+  auto isolation_level = get_isolation_level();
 
   if (isolation_level == IsolationLevel::READ_UNCOMMITTED) {
     // READ_UNCOMMITTED 随单次操作更新数据库, 不需要最后的统一更新
@@ -191,7 +192,7 @@ bool TranContext::commit(bool test_fail) {
 }
 
 bool TranContext::abort() {
-  auto isolation_level = tranManager_->isolation_level();
+  auto isolation_level = get_isolation_level();
   if (isolation_level == IsolationLevel::READ_UNCOMMITTED) {
     // 需要手动恢复之前的更改
     // TODO: 需要使用批量化操作优化性能
@@ -224,10 +225,12 @@ bool TranContext::abort() {
   return true;
 }
 
+enum IsolationLevel TranContext::get_isolation_level() {
+  return isolation_level_;
+}
+
 // *********************** TranManager ***********************
-TranManager::TranManager(std::string data_dir,
-                         enum IsolationLevel isolation_level)
-    : data_dir_(data_dir), isolation_level_(isolation_level) {
+TranManager::TranManager(std::string data_dir) : data_dir_(data_dir) {
   auto file_path = get_tranc_id_file_path();
 
   // 判断文件是否存在
@@ -284,8 +287,6 @@ void TranManager::read_tranc_id_file() {
   max_finished_tranc_id_ = tranc_id_file_.read_uint64(sizeof(uint64_t) * 2);
 }
 
-enum IsolationLevel TranManager::isolation_level() { return isolation_level_; }
-
 void TranManager::update_max_finished_tranc_id(uint64_t tranc_id) {
   // max_finished_tranc_id_ 对于崩溃恢复没有作用,
   // 因为可能其标记的事务的更改还没有刷盘 因此只需要在内存中更改即可,
@@ -326,13 +327,14 @@ uint64_t TranManager::get_max_finished_tranc_id_() {
   return max_finished_tranc_id_.load();
 }
 
-std::shared_ptr<TranContext> TranManager::new_tranc() {
+std::shared_ptr<TranContext>
+TranManager::new_tranc(const IsolationLevel &isolation_level) {
   // 获取锁
   std::unique_lock<std::mutex> lock(mutex_);
 
   auto tranc_id = getNextTransactionId();
-  activeTrans_[tranc_id] =
-      std::make_shared<TranContext>(tranc_id, engine_, shared_from_this());
+  activeTrans_[tranc_id] = std::make_shared<TranContext>(
+      tranc_id, engine_, shared_from_this(), isolation_level);
   return activeTrans_[tranc_id];
 }
 std::string TranManager::get_tranc_id_file_path() {

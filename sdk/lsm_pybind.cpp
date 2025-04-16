@@ -34,10 +34,20 @@ void bind_TranContext(py::module &m) {
       .def("put", &TranContext::put);
 }
 
+void bind_IsolationLevel(py::module &m) {
+  py::enum_<IsolationLevel>(m, "IsolationLevel")
+      .value("READ_UNCOMMITTED", IsolationLevel::READ_UNCOMMITTED)
+      .value("READ_COMMITTED", IsolationLevel::READ_COMMITTED)
+      .value("REPEATABLE_READ", IsolationLevel::REPEATABLE_READ)
+      .value("SERIALIZABLE", IsolationLevel::SERIALIZABLE)
+      .export_values();
+}
+
 PYBIND11_MODULE(lsm_pybind, m) {
   // 绑定辅助类
   bind_TwoMergeIterator(m);
   bind_TranContext(m);
+  bind_IsolationLevel(m);
 
   // 主类 LSM
   py::class_<LSM>(m, "LSM")
@@ -58,7 +68,8 @@ PYBIND11_MODULE(lsm_pybind, m) {
            "Start an iterator with transaction ID")
       .def("end", &LSM::end, "Get end iterator")
       // 事务
-      .def("begin_tran", &LSM::begin_tran, "Start a transaction")
+      .def("begin_tran", &LSM::begin_tran, py::arg("isolation_level"),
+           "Start a transaction")
       // 其他方法
       .def("clear", &LSM::clear, "Clear all data") // ! Fix bugs
       .def("flush", &LSM::flush, "Flush memory table to disk")

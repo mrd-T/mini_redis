@@ -26,7 +26,8 @@ class TranContext {
 
 public:
   TranContext(uint64_t tranc_id, std::shared_ptr<LSMEngine> engine,
-              std::shared_ptr<TranManager> tranManager);
+              std::shared_ptr<TranManager> tranManager,
+              const enum IsolationLevel &isolation_level);
   void put(const std::string &key, const std::string &value);
   void remove(const std::string &key);
   std::optional<std::string> get(const std::string &key);
@@ -34,7 +35,9 @@ public:
   // ! test_fail = true 是测试中手动触发的崩溃
   bool commit(bool test_fail = false);
   bool abort();
+  enum IsolationLevel get_isolation_level();
 
+public:
   std::shared_ptr<LSMEngine> engine_;
   std::shared_ptr<TranManager> tranManager_;
   uint64_t tranc_id_;
@@ -42,6 +45,7 @@ public:
   std::unordered_map<std::string, std::string> temp_map_;
   bool isCommited = false;
   bool isAborted = false;
+  enum IsolationLevel isolation_level_;
 
 private:
   std::unordered_map<std::string,
@@ -54,12 +58,11 @@ private:
 
 class TranManager : public std::enable_shared_from_this<TranManager> {
 public:
-  TranManager(std::string data_dir, enum IsolationLevel isolation_level =
-                                        IsolationLevel::REPEATABLE_READ);
+  TranManager(std::string data_dir);
   ~TranManager();
   void init_new_wal();
   void set_engine(std::shared_ptr<LSMEngine> engine);
-  std::shared_ptr<TranContext> new_tranc();
+  std::shared_ptr<TranContext> new_tranc(const IsolationLevel &isolation_level);
 
   uint64_t getNextTransactionId();
   uint64_t get_max_flushed_tranc_id();
@@ -75,7 +78,6 @@ public:
   std::string get_tranc_id_file_path();
   void write_tranc_id_file();
   void read_tranc_id_file();
-  enum IsolationLevel isolation_level();
   // void flusher();
 
 private:
@@ -83,7 +85,6 @@ private:
   std::shared_ptr<LSMEngine> engine_;
   std::shared_ptr<WAL> wal;
   std::string data_dir_;
-  enum IsolationLevel isolation_level_;
   // std::atomic<bool> flush_thread_running_ = true;
   std::atomic<uint64_t> nextTransactionId_ = 1;
   std::atomic<uint64_t> max_flushed_tranc_id_ = 0;

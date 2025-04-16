@@ -29,8 +29,9 @@ public:
 
   std::optional<std::pair<std::string, uint64_t>> get(const std::string &key,
                                                       uint64_t tranc_id);
-  std::vector<std::pair<std::string, std::optional<std::pair<std::string, uint64_t>>>>
-                                                  get_batch(const std::vector<std::string> &keys, uint64_t tranc_id);
+  std::vector<
+      std::pair<std::string, std::optional<std::pair<std::string, uint64_t>>>>
+  get_batch(const std::vector<std::string> &keys, uint64_t tranc_id);
 
   std::optional<std::pair<std::string, uint64_t>>
   sst_get_(const std::string &key, uint64_t tranc_id);
@@ -85,7 +86,7 @@ public:
 
   std::optional<std::string> get(const std::string &key);
   std::vector<std::pair<std::string, std::optional<std::string>>>
-                             get_batch(const std::vector<std::string> &keys);
+  get_batch(const std::vector<std::string> &keys);
 
   void put(const std::string &key, const std::string &value);
   void put_batch(const std::vector<std::pair<std::string, std::string>> &kvs);
@@ -104,5 +105,6 @@ public:
   void flush_all();
 
   // 开启一个事务
-  std::shared_ptr<TranContext> begin_tran();
+  std::shared_ptr<TranContext>
+  begin_tran(const IsolationLevel &isolation_level);
 };

@@ -269,7 +269,7 @@ TEST_F(LSMTest, TrancIdTest) {
 
 TEST_F(LSMTest, TranContextTest) {
   LSM lsm(test_dir);
-  auto tran_ctx = lsm.begin_tran();
+  auto tran_ctx = lsm.begin_tran(IsolationLevel::REPEATABLE_READ);
 
   tran_ctx->put("key1", "value1");
   tran_ctx->put("key2", "value2");
@@ -287,7 +287,7 @@ TEST_F(LSMTest, TranContextTest) {
   query = lsm.get("key2");
   EXPECT_EQ(query.value(), "value2");
 
-  auto tran_ctx2 = lsm.begin_tran();
+  auto tran_ctx2 = lsm.begin_tran(IsolationLevel::REPEATABLE_READ);
   tran_ctx2->put("key1", "value1");
   tran_ctx2->put("key2", "value2");
 
@@ -302,7 +302,7 @@ TEST_F(LSMTest, Recover) {
     LSM lsm(test_dir);
 
     lsm.put("xxx  ", "yyy");
-    auto tran_ctx = lsm.begin_tran();
+    auto tran_ctx = lsm.begin_tran(IsolationLevel::REPEATABLE_READ);
 
     for (int i = 0; i < 100; i++) {
       std::ostringstream oss_key;

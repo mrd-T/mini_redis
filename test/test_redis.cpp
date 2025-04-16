@@ -82,9 +82,9 @@ TEST_F(RedisCommandsTest, HSetAndHGet) {
 
   // HSET
   std::vector<std::string> hset_args1 = {"HSET", key, field1, value1};
-  EXPECT_EQ(lsm.hset(hset_args1), "+OK\r\n");
+  EXPECT_EQ(lsm.hset(hset_args1), ":1\r\n");
   std::vector<std::string> hset_args2 = {"HSET", key, field2, value2};
-  EXPECT_EQ(lsm.hset(hset_args2), "+OK\r\n");
+  EXPECT_EQ(lsm.hset(hset_args2), ":1\r\n");
 
   // HGET
   std::vector<std::string> hget_args1 = {"HGET", key, field1};
@@ -106,9 +106,9 @@ TEST_F(RedisCommandsTest, HDel) {
 
   // HSET
   std::vector<std::string> hset_args1 = {"HSET", key, field1, value1};
-  EXPECT_EQ(lsm.hset(hset_args1), "+OK\r\n");
+  EXPECT_EQ(lsm.hset(hset_args1), ":1\r\n");
   std::vector<std::string> hset_args2 = {"HSET", key, field2, value2};
-  EXPECT_EQ(lsm.hset(hset_args2), "+OK\r\n");
+  EXPECT_EQ(lsm.hset(hset_args2), ":1\r\n");
 
   // HDEL
   std::vector<std::string> hdel_args = {"HDEL", key, field1};
@@ -132,9 +132,9 @@ TEST_F(RedisCommandsTest, HKeys) {
 
   // HSET
   std::vector<std::string> hset_args1 = {"HSET", key, field1, value1};
-  EXPECT_EQ(lsm.hset(hset_args1), "+OK\r\n");
+  EXPECT_EQ(lsm.hset(hset_args1), ":1\r\n");
   std::vector<std::string> hset_args2 = {"HSET", key, field2, value2};
-  EXPECT_EQ(lsm.hset(hset_args2), "+OK\r\n");
+  EXPECT_EQ(lsm.hset(hset_args2), ":1\r\n");
 
   // HKEYS
   std::string expected_keys =
@@ -153,7 +153,7 @@ TEST_F(RedisCommandsTest, HGetWithTTL) {
 
   // HSET
   std::vector<std::string> hset_args = {"HSET", key, field, value};
-  EXPECT_EQ(lsm.hset(hset_args), "+OK\r\n");
+  EXPECT_EQ(lsm.hset(hset_args), ":1\r\n");
 
   // Set TTL
   std::vector<std::string> args{"EXPIRE", key, "1"};
@@ -178,7 +178,7 @@ TEST_F(RedisCommandsTest, HExpire) {
 
   // HSET
   std::vector<std::string> hset_args = {"HSET", key, field, value};
-  EXPECT_EQ(lsm.hset(hset_args), "+OK\r\n");
+  EXPECT_EQ(lsm.hset(hset_args), ":1\r\n");
 
   // Set TTL
   std::vector<std::string> args{"EXPIRE", key, "1"};
@@ -190,7 +190,7 @@ TEST_F(RedisCommandsTest, HExpire) {
 
   // HGET after TTL expired
   std::vector<std::string> hset_args2 = {"HSET", key, field, value2};
-  EXPECT_EQ(lsm.hset(hset_args2), "+OK\r\n");
+  EXPECT_EQ(lsm.hset(hset_args2), ":0\r\n");
 
   // HGET after setting new value
   std::vector<std::string> hget_args = {"HGET", key, field};

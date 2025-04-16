@@ -29,6 +29,8 @@ public:
 
   std::optional<std::pair<std::string, uint64_t>> get(const std::string &key,
                                                       uint64_t tranc_id);
+  std::vector<std::pair<std::string, std::optional<std::pair<std::string, uint64_t>>>>
+                                                  get_batch(const std::vector<std::string> &keys, uint64_t tranc_id);
 
   std::optional<std::pair<std::string, uint64_t>>
   sst_get_(const std::string &key, uint64_t tranc_id);
@@ -82,6 +84,8 @@ public:
   ~LSM();
 
   std::optional<std::string> get(const std::string &key);
+  std::vector<std::pair<std::string, std::optional<std::string>>>
+                             get_batch(const std::vector<std::string> &keys);
 
   void put(const std::string &key, const std::string &value);
   void put_batch(const std::vector<std::pair<std::string, std::string>> &kvs);

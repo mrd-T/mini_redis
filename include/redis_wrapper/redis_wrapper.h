@@ -86,6 +86,8 @@ private:
   // 哈希操作
   std::string redis_hset(const std::string &key, const std::string &field,
                          const std::string &value);
+  std::string redis_hset_batch(const std::string &key,
+                         std::vector<std::pair<std::string, std::string>> &field_value_pairs);
   std::string redis_hget(const std::string &key, const std::string &field);
   std::string redis_hdel(const std::string &key, const std::string &field);
   std::string redis_hkeys(const std::string &key);

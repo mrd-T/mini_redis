@@ -364,7 +364,6 @@ uint64_t LSMEngine::flush() {
   }
 
   // 2. 创建新的 SST ID
-  // 链表头部存储的是最新刷入的sst, 其sst_id最大
   size_t new_sst_id = next_sst_id++;
 
   // 3. 准备 SSTBuilder

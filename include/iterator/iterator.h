@@ -14,6 +14,7 @@ enum class IteratorType {
   HeapIterator,
   TwoMergeIterator,
   ConcactIterator,
+  LevelIterator,
 };
 
 class BaseIterator {

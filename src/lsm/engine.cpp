@@ -1,5 +1,6 @@
 #include "../../include/lsm/engine.h"
 #include "../../include/consts.h"
+#include "../../include/lsm/level_iterator.h"
 #include "../../include/sst/concact_iterator.h"
 #include "../../include/sst/sst.h"
 #include "../../include/sst/sst_iterator.h"
@@ -58,7 +59,7 @@ LSMEngine::LSMEngine(std::string path) : data_dir(path) {
       // 加载SST文件, 初始化时需要加写锁
       std::unique_lock<std::shared_mutex> lock(ssts_mtx); // 写锁
 
-      next_sst_id = std::max(sst_id, next_sst_id); // 记录目前最大的 sst_id
+      next_sst_id = std::max(sst_id, next_sst_id);    // 记录目前最大的 sst_id
       cur_max_level = std::max(level, cur_max_level); // 记录目前最大的 level
       std::string sst_path = get_sst_path(sst_id, level);
       auto sst = SST::open(sst_id, FileObj::open(sst_path, false), block_cache);
@@ -451,28 +452,11 @@ LSMEngine::lsm_iters_monotony_predicate(
   }
 }
 
-TwoMergeIterator LSMEngine::begin(uint64_t tranc_id) {
-  std::vector<SstIterator> iter_vec;
-  std::shared_lock<std::shared_mutex> lock(ssts_mtx); // 读锁
-  for (auto &sst_id : level_sst_ids[0]) {
-    auto sst = ssts[sst_id];
-    for (auto iter = sst->begin(tranc_id); iter != sst->end(); ++iter) {
-      // 这里越新的sst的idx越大, 我们需要让新的sst优先在堆顶
-      // 让新的sst(拥有更大的idx)排序在前面, 反转符号就行了
-      iter_vec.push_back(iter);
-    }
-  }
-
-  std::shared_ptr<HeapIterator> mem_iter_ptr = std::make_shared<HeapIterator>();
-  *mem_iter_ptr = memtable.begin(tranc_id);
-
-  std::shared_ptr<HeapIterator> l0_iter_ptr = std::make_shared<HeapIterator>();
-  *l0_iter_ptr = SstIterator::merge_sst_iterator(iter_vec, tranc_id).first;
-
-  return TwoMergeIterator(mem_iter_ptr, l0_iter_ptr, tranc_id);
+Level_Iterator LSMEngine::begin(uint64_t tranc_id) {
+  return Level_Iterator(shared_from_this(), tranc_id);
 }
 
-TwoMergeIterator LSMEngine::end() { return TwoMergeIterator{}; }
+Level_Iterator LSMEngine::end() { return Level_Iterator{}; }
 
 void LSMEngine::full_compact(size_t src_level) {
   // 将 src_level 的 sst 全体压缩到 src_level + 1

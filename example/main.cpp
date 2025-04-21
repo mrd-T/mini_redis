@@ -1,4 +1,5 @@
 #include "../include/lsm/engine.h"
+#include "../include/lsm/level_iterator.h"
 #include <iostream>
 #include <string>
 
@@ -45,7 +46,7 @@ int main() {
   }
 
   // transaction
-  auto tranc_hanlder = lsm.begin_tran();
+  auto tranc_hanlder = lsm.begin_tran(IsolationLevel::REPEATABLE_READ);
   tranc_hanlder->put("xxx", "yyy");
   tranc_hanlder->put("yyy", "xxx");
   tranc_hanlder->commit();

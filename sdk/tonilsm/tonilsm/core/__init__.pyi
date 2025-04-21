@@ -17,6 +17,14 @@ class TwoMergeIterator:
     def __next__(self) -> Tuple[bytes, bytes]:
         ...
 
+class Level_Iterator:
+
+    def __iter__(self) -> Iterator[Tuple[bytes, bytes]]:
+        ...
+
+    def __next__(self) -> Tuple[bytes, bytes]:
+        ...
+
 
 class TranContext:
     # 事务操作
@@ -60,10 +68,10 @@ class LSM:
         ...
 
     # 迭代器
-    def begin(self, tranc_id: int) -> TwoMergeIterator:
+    def begin(self, tranc_id: int) -> Level_Iterator:
         ...
 
-    def end(self) -> TwoMergeIterator:
+    def end(self) -> Level_Iterator:
         ...
 
     # 事务管理

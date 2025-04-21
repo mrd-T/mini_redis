@@ -1,4 +1,5 @@
 #include "../include/lsm/engine.h"
+#include "../include/lsm/level_iterator.h"
 #include <pybind11/functional.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -10,6 +11,18 @@ void bind_TwoMergeIterator(py::module &m) {
   py::class_<TwoMergeIterator>(m, "TwoMergeIterator")
       .def("__iter__", [](TwoMergeIterator &it) { return &it; })
       .def("__next__", [](TwoMergeIterator &it) {
+        if (!it.is_valid())
+          throw py::stop_iteration();
+        auto kv = *it;
+        ++it;
+        return py::make_tuple(kv.first, kv.second);
+      });
+}
+
+void bind_Level_Iterator(py::module &m) {
+  py::class_<Level_Iterator>(m, "Level_Iterator")
+      .def("__iter__", [](Level_Iterator &it) { return &it; })
+      .def("__next__", [](Level_Iterator &it) {
         if (!it.is_valid())
           throw py::stop_iteration();
         auto kv = *it;
@@ -46,6 +59,7 @@ void bind_IsolationLevel(py::module &m) {
 PYBIND11_MODULE(lsm_pybind, m) {
   // 绑定辅助类
   bind_TwoMergeIterator(m);
+  bind_Level_Iterator(m);
   bind_TranContext(m);
   bind_IsolationLevel(m);
 

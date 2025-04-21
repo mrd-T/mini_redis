@@ -7,16 +7,19 @@
 #include "two_merge_iterator.h"
 #include <cstddef>
 #include <deque>
+#include <map>
 #include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
-class LSMEngine {
+class Level_Iterator;
+
+class LSMEngine : public std::enable_shared_from_this<LSMEngine> {
 public:
   std::string data_dir;
   MemTable memtable;
-  std::unordered_map<size_t, std::deque<size_t>> level_sst_ids;
+  std::map<size_t, std::deque<size_t>> level_sst_ids;
   std::unordered_map<size_t, std::shared_ptr<SST>> ssts;
   std::shared_mutex ssts_mtx;
   std::shared_ptr<BlockCache> block_cache;
@@ -56,8 +59,8 @@ public:
   lsm_iters_monotony_predicate(
       uint64_t tranc_id, std::function<int(const std::string &)> predicate);
 
-  TwoMergeIterator begin(uint64_t tranc_id);
-  TwoMergeIterator end();
+  Level_Iterator begin(uint64_t tranc_id);
+  Level_Iterator end();
 
   static size_t get_sst_size(size_t level);
 
@@ -94,7 +97,7 @@ public:
   void remove(const std::string &key);
   void remove_batch(const std::vector<std::string> &keys);
 
-  using LSMIterator = TwoMergeIterator;
+  using LSMIterator = Level_Iterator;
   LSMIterator begin(uint64_t tranc_id);
   LSMIterator end();
   std::optional<std::pair<TwoMergeIterator, TwoMergeIterator>>

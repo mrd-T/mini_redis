@@ -39,6 +39,7 @@ Here is a simple example demonstrating how to use the LSM Tree for basic key-val
 
 ```cpp
 #include "../include/lsm/engine.h"
+#include "../include/lsm/level_iterator.h"
 #include <iostream>
 #include <string>
 
@@ -85,13 +86,15 @@ int main() {
   }
 
   // transaction
-  auto tranc_hanlder = lsm.begin_tran();
+  auto tranc_hanlder = lsm.begin_tran(IsolationLevel::REPEATABLE_READ);
   tranc_hanlder->put("xxx", "yyy");
   tranc_hanlder->put("yyy", "xxx");
   tranc_hanlder->commit();
 
   auto res = lsm.get("xxx");
   std::cout << "xxx: " << res.value() << std::endl;
+
+  lsm.clear();
 
   return 0;
 }

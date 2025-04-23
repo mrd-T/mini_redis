@@ -1,4 +1,7 @@
-![logo](doc/logo-compact.png)
+<div style="text-align: center">
+  <img src="./doc/logo1-compact.png">
+</div>
+<br>
 
 `Toni-LSM` is a educational project to implement a simple kv database from scratch, using lsm-tree as the storage engine. The project manager uses [xmake](https://xmake.io/). The project is inspired by [mini-lsm](https://github.com/skyzh/mini-lsm), [tinykv](https://github.com/talent-plan/tinykv) and [leveldb](https://github.com/google/leveldb). The project is partly compatible with the [Redis Resp protocol](https://redis.io/docs/latest/develop/reference/protocol-spec/), so it can be used as a redis backend and relpace `redis-server`(Just for fun).
 
@@ -36,6 +39,7 @@ Here is a simple example demonstrating how to use the LSM Tree for basic key-val
 
 ```cpp
 #include "../include/lsm/engine.h"
+#include "../include/lsm/level_iterator.h"
 #include <iostream>
 #include <string>
 
@@ -82,13 +86,15 @@ int main() {
   }
 
   // transaction
-  auto tranc_hanlder = lsm.begin_tran();
+  auto tranc_hanlder = lsm.begin_tran(IsolationLevel::REPEATABLE_READ);
   tranc_hanlder->put("xxx", "yyy");
   tranc_hanlder->put("yyy", "xxx");
   tranc_hanlder->commit();
 
   auto res = lsm.get("xxx");
   std::cout << "xxx: " << res.value() << std::endl;
+
+  lsm.clear();
 
   return 0;
 }

@@ -192,3 +192,43 @@ target("lsm_pybind")
     add_ldflags("-Wl,-rpath,$ORIGIN")
     add_defines("TONILSM_EXPORT=__attribute__((visibility(\"default\")))")
     add_cxxflags("-fvisibility=hidden")  -- 隐藏非导出符号
+
+task("run-all-tests")
+    set_category("plugin")
+    set_menu {
+        usage = "xmake run-all-tests",
+        description = "Build and run all test binaries (targets starting with 'test_')"
+    }
+
+    on_run(function ()
+        import("core.project.project")
+
+        local targets = project.targets()
+        local test_targets = {}
+
+        for name, _ in pairs(targets) do
+            if name:startswith("test_") then
+                table.insert(test_targets, name)
+            end
+        end
+
+        table.sort(test_targets)
+
+        if #test_targets == 0 then
+            print("\27[33m[Warning] No test targets found.\27[0m")
+            return
+        end
+
+        for _, name in ipairs(test_targets) do
+            print("\27[36m>> Building\27[0m " .. name)
+            os.execv("xmake", {"build", name})
+
+            print("\27[32m>> Running\27[0m " .. name)
+            os.execv("xmake", {"run", name})
+            print("")
+        end
+
+        print("\27[32mAll tests finished.\27[0m")
+    end)
+
+

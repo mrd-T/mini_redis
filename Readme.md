@@ -1,5 +1,5 @@
 <div style="text-align: center">
-  <img src="./doc/logo1-compact.png">
+  <img src="./doc/logo1-compact.jpg">
 </div>
 <br>
 
@@ -9,7 +9,7 @@ The developing posts can be found in my [blog](https://tonixwd.github.io/categor
 
 You can also join the QQ group for discussion: 
 
-<img src="./doc/qrcode_1743840149747.jpg" height="400">
+<img src="./doc/qrcode.jpg" height="400">
 
 ## Build Configuration
 

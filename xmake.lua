@@ -4,10 +4,13 @@ set_version("0.0.1")
 set_languages("c++20")
 
 add_rules("mode.debug", "mode.release")
-add_requires("gtest") -- 添加gtest依赖
--- 添加Muduo库
+
+add_repositories("local-repo build")
+
+add_requires("gtest")
 add_requires("muduo")
 add_requires("pybind11")
+add_requires("toml11", {alias = "toml11", system = false})
 
 if is_mode("debug") then
     add_defines("LSM_DEBUG")
@@ -16,6 +19,7 @@ end
 target("config")
     set_kind("static")  -- 生成静态库
     add_files("src/config/*.cpp")
+    add_packages("toml11")
     add_includedirs("include", {public = true})
 
 target("utils")
@@ -74,6 +78,7 @@ target("redis")
 target("lsm_shared")
     set_kind("shared")
     add_files("src/**.cpp")
+    add_packages("toml11")
     add_includedirs("include", {public = true})
     set_targetdir("$(buildir)/lib")
 

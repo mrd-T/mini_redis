@@ -1,4 +1,5 @@
 #include "../../include/config/config.h"
+#include <toml.hpp>
 
 #include <iostream> // For std::cerr, std::endl
 

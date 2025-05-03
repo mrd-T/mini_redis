@@ -5,7 +5,6 @@
 
 // Include the necessary toml11 header
 // Assuming a common setup where you include the main header:
-#include "../3rd_party/toml.hpp"
 
 class TomlConfig {
 private:

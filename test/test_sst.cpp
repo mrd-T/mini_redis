@@ -1,3 +1,4 @@
+#include "../include/config/config.h"
 #include "../include/consts.h"
 #include "../include/sst/sst.h"
 #include "../include/sst/sst_iterator.h"
@@ -28,8 +29,9 @@ protected:
       builder.add(key, value, 0);
     }
 
-    auto block_cache = std::make_shared<BlockCache>(LSMmm_BLOCK_CACHE_CAPACITY,
-                                                    LSMmm_BLOCK_CACHE_K);
+    auto block_cache = std::make_shared<BlockCache>(
+        TomlConfig::getInstance().getLsmBlockCacheCapacity(),
+        TomlConfig::getInstance().getLsmBlockCacheK());
 
     return builder.build(1, "test_data/test.sst", block_cache);
   }
@@ -38,8 +40,9 @@ protected:
 // 测试基本的写入和读取
 TEST_F(SSTTest, BasicWriteAndRead) {
   SSTBuilder builder(1024, true); // 1KB block size
-  auto block_cache = std::make_shared<BlockCache>(LSMmm_BLOCK_CACHE_CAPACITY,
-                                                  LSMmm_BLOCK_CACHE_K);
+  auto block_cache = std::make_shared<BlockCache>(
+      TomlConfig::getInstance().getLsmBlockCacheCapacity(),
+      TomlConfig::getInstance().getLsmBlockCacheK());
 
   // 添加一些数据
   builder.add("key1", "value1", 0);
@@ -67,8 +70,9 @@ TEST_F(SSTTest, BasicWriteAndRead) {
 TEST_F(SSTTest, BlockSplitting) {
   // 使用小的block size强制分裂
   SSTBuilder builder(64, true); // 很小的block size
-  auto block_cache = std::make_shared<BlockCache>(LSMmm_BLOCK_CACHE_CAPACITY,
-                                                  LSMmm_BLOCK_CACHE_K);
+  auto block_cache = std::make_shared<BlockCache>(
+      TomlConfig::getInstance().getLsmBlockCacheCapacity(),
+      TomlConfig::getInstance().getLsmBlockCacheK());
 
   // 添加足够多的数据以触发分裂
   for (int i = 0; i < 10; i++) {
@@ -119,8 +123,9 @@ TEST_F(SSTTest, Metadata) {
 // 测试空SST构建
 TEST_F(SSTTest, EmptySST) {
   SSTBuilder builder(1024, true);
-  auto block_cache = std::make_shared<BlockCache>(LSMmm_BLOCK_CACHE_CAPACITY,
-                                                  LSMmm_BLOCK_CACHE_K);
+  auto block_cache = std::make_shared<BlockCache>(
+      TomlConfig::getInstance().getLsmBlockCacheCapacity(),
+      TomlConfig::getInstance().getLsmBlockCacheK());
   EXPECT_THROW(builder.build(1, "test_data/empty.sst", block_cache),
                std::runtime_error);
 }
@@ -129,8 +134,9 @@ TEST_F(SSTTest, EmptySST) {
 TEST_F(SSTTest, ReopenSST) {
   // 首先创建一个SST
   auto sst = create_test_sst(256, 10);
-  auto block_cache = std::make_shared<BlockCache>(LSMmm_BLOCK_CACHE_CAPACITY,
-                                                  LSMmm_BLOCK_CACHE_K);
+  auto block_cache = std::make_shared<BlockCache>(
+      TomlConfig::getInstance().getLsmBlockCacheCapacity(),
+      TomlConfig::getInstance().getLsmBlockCacheK());
 
   // 重新打开SST
   FileObj file = FileObj::open("test_data/test.sst", false);
@@ -145,8 +151,9 @@ TEST_F(SSTTest, ReopenSST) {
 // 测试大文件
 TEST_F(SSTTest, LargeSST) {
   SSTBuilder builder(4096, true); // 4KB blocks
-  auto block_cache = std::make_shared<BlockCache>(LSMmm_BLOCK_CACHE_CAPACITY,
-                                                  LSMmm_BLOCK_CACHE_K);
+  auto block_cache = std::make_shared<BlockCache>(
+      TomlConfig::getInstance().getLsmBlockCacheCapacity(),
+      TomlConfig::getInstance().getLsmBlockCacheK());
 
   // 添加大量数据
   for (int i = 0; i < 1000; i++) {
@@ -189,8 +196,9 @@ TEST_F(SSTTest, LargeSST) {
 
 TEST_F(SSTTest, LargeSSTPredicate) {
   SSTBuilder builder(4096, true); // 4KB blocks
-  auto block_cache = std::make_shared<BlockCache>(LSMmm_BLOCK_CACHE_CAPACITY,
-                                                  LSMmm_BLOCK_CACHE_K);
+  auto block_cache = std::make_shared<BlockCache>(
+      TomlConfig::getInstance().getLsmBlockCacheCapacity(),
+      TomlConfig::getInstance().getLsmBlockCacheK());
 
   // 添加大量数据
   for (int i = 0; i < 1000; i++) {

@@ -1,4 +1,5 @@
 #include "../../include/sst/sst.h"
+#include "../../include/config/config.h"
 #include "../../include/consts.h"
 #include "../../include/sst/sst_iterator.h"
 #include <algorithm>
@@ -204,7 +205,8 @@ SSTBuilder::SSTBuilder(size_t block_size, bool has_bloom) : block(block_size) {
   // 初始化第一个block
   if (has_bloom) {
     bloom_filter = std::make_shared<BloomFilter>(
-        BLOOM_FILTER_EXPECTED_SIZE, BLOOM_FILTER_EXPECTED_ERROR_RATE);
+        TomlConfig::getInstance().getBloomFilterExpectedSize(),
+        TomlConfig::getInstance().getBloomFilterExpectedErrorRate());
   }
   meta_entries.clear();
   data.clear();

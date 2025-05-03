@@ -1,4 +1,5 @@
 #include "../../include/memtable/memtable.h"
+#include "../../include/config/config.h"
 #include "../../include/consts.h"
 #include "../../include/iterator/iterator.h"
 #include "../../include/skiplist/skiplist.h"
@@ -10,7 +11,6 @@
 #include <optional>
 #include <shared_mutex>
 #include <sys/types.h>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -31,7 +31,8 @@ void MemTable::put(const std::string &key, const std::string &value,
                    uint64_t tranc_id) {
   std::unique_lock<std::shared_mutex> lock1(cur_mtx);
   put_(key, value, tranc_id);
-  if (current_table->get_size() > LSM_PER_MEM_SIZE_LIMIT) {
+  if (current_table->get_size() >
+      TomlConfig::getInstance().getLsmPerMemSizeLimit()) {
     // 冻结当前表还需要获取frozen_mtx的写锁
     std::unique_lock<std::shared_mutex> lock2(frozen_mtx);
     frozen_cur_table_();
@@ -45,7 +46,8 @@ void MemTable::put_batch(
   for (auto &[k, v] : kvs) {
     put_(k, v, tranc_id);
   }
-  if (current_table->get_size() > LSM_PER_MEM_SIZE_LIMIT) {
+  if (current_table->get_size() >
+      TomlConfig::getInstance().getLsmPerMemSizeLimit()) {
     // 冻结当前表还需要获取frozen_mtx的写锁
     std::unique_lock<std::shared_mutex> lock2(frozen_mtx);
     frozen_cur_table_();
@@ -183,7 +185,8 @@ void MemTable::remove_(const std::string &key, uint64_t tranc_id) {
 void MemTable::remove(const std::string &key, uint64_t tranc_id) {
   std::unique_lock<std::shared_mutex> lock(cur_mtx);
   remove_(key, tranc_id);
-  if (current_table->get_size() > LSM_PER_MEM_SIZE_LIMIT) {
+  if (current_table->get_size() >
+      TomlConfig::getInstance().getLsmPerMemSizeLimit()) {
     // 冻结当前表还需要获取frozen_mtx的写锁
     std::unique_lock<std::shared_mutex> lock2(frozen_mtx);
     frozen_cur_table_();
@@ -197,7 +200,8 @@ void MemTable::remove_batch(const std::vector<std::string> &keys,
   for (auto &key : keys) {
     remove_(key, tranc_id);
   }
-  if (current_table->get_size() > LSM_PER_MEM_SIZE_LIMIT) {
+  if (current_table->get_size() >
+      TomlConfig::getInstance().getLsmPerMemSizeLimit()) {
     // 冻结当前表还需要获取frozen_mtx的写锁
     std::unique_lock<std::shared_mutex> lock2(frozen_mtx);
     frozen_cur_table_();

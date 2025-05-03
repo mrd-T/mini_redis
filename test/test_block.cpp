@@ -1,5 +1,6 @@
 #include "../include/block/block.h"
 #include "../include/block/block_iterator.h"
+#include "../include/config/config.h"
 #include "../include/consts.h"
 #include <gtest/gtest.h>
 #include <iomanip>
@@ -273,7 +274,8 @@ TEST_F(BlockTest, TrancIteratorTest) {
 TEST_F(BlockTest, PredicateTest) {
   std::vector<uint8_t> encoded_p;
   {
-    std::shared_ptr<Block> block1 = std::make_shared<Block>(LSM_BLOCK_SIZE);
+    std::shared_ptr<Block> block1 =
+        std::make_shared<Block>(TomlConfig::getInstance().getLsmBlockSize());
     int num = 50;
 
     for (int i = 0; i < num; ++i) {
@@ -338,7 +340,8 @@ TEST_F(BlockTest, TrancPredicateTest) {
   std::vector<uint8_t> encoded_p;
 
   {
-    std::shared_ptr<Block> block1 = std::make_shared<Block>(LSM_BLOCK_SIZE);
+    std::shared_ptr<Block> block1 =
+        std::make_shared<Block>(TomlConfig::getInstance().getLsmBlockSize());
     int num = 50;
 
     block1->add_entry("key0", "value0", 0, false);

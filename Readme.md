@@ -137,7 +137,6 @@ The performance of the wrapper redis server is not very good, but it is still fa
   - [x] Range Query
 - [x] MemTable
   - [x] Iterator
-  - [x] Merge
   - [x] Range Query
   - [x] flush to sst
 - [x] SST
@@ -152,50 +151,39 @@ The performance of the wrapper redis server is not very good, but it is still fa
   - [x] Recover
 - [x] Transaction
   - [x] MVCC
-  - [ ] Snapshot
   - [x] Isolation Level
     - [x] Read Uncommitted
     - [x] Read Committed
     - [x] Repeatable Read (Default)
     - [ ] Serializable
+- [x] Config
+  - [x] Toml Config
 - [x] Redis
   - [x] Fundamental KV Operations
-    - [x] set
-    - [x] get
-    - [x] ttl
-    - [x] expire
+    - [x] set/get
+    - [x] ttl/expire
   - [x] Hash Operations
-    - [x] hset
-    - [x] hget
+    - [x] hset/hget/hdel
     - [x] hkeys
-    - [x] hdel
   - [x] List Operations
-    - [x] lpush/rpush
-    - [x] lpop/rpop
+    - [x] lpush/rpush/lpop/rpop
     - [x] llen
     - [x] lrange
   - [x] ZSet
-    - [x] ZADD
-    - [x] ZREM
+    - [x] ZADD/ZREM/ZINCRBY
     - [x] ZCARD
     - [x] ZRANGE
     - [x] ZSCORE
     - [x] ZRANK
-    - [x] ZINCRBY
   - [x] Set
-    - [x] SADD
-    - [x] SREM
-    - [x] SISMEMBER
-    - [x] SMEMBERS
+    - [x] SADD/SREM
+    - [x] SMEMBERS/SISMEMBER
     - [x] SCARD
   - [x] IO Operations
     - [x] FLUSHALL
     - [x] SAVE
   - [x] SDK
     - [x] Python
-    - [ ] Java
-    - [ ] Go
-    - [ ] Rust
 
 > Only commonly used redis commands are supported. The other implementations can refer to `src/redis_wrapper/redis_wrapper.cpp`. If you need more commands, please submit a pull request. 
 

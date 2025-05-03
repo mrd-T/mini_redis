@@ -1,4 +1,5 @@
 #include "../../include/lsm/engine.h"
+#include "../../include/config/config.h"
 #include "../../include/consts.h"
 #include "../../include/lsm/level_iterator.h"
 #include "../../include/sst/concact_iterator.h"
@@ -16,8 +17,9 @@
 // *********************** LSMEngine ***********************
 LSMEngine::LSMEngine(std::string path) : data_dir(path) {
   // 初始化 block_cahce
-  block_cache = std::make_shared<BlockCache>(LSMmm_BLOCK_CACHE_CAPACITY,
-                                             LSMmm_BLOCK_CACHE_K);
+  block_cache = std::make_shared<BlockCache>(
+      TomlConfig::getInstance().getLsmBlockCacheCapacity(),
+      TomlConfig::getInstance().getLsmBlockCacheK());
 
   // 创建数据目录
   if (!std::filesystem::exists(path)) {
@@ -297,7 +299,8 @@ uint64_t LSMEngine::put(const std::string &key, const std::string &value,
   memtable.put(key, value, tranc_id);
 
   // 如果 memtable 太大，需要刷新到磁盘
-  if (memtable.get_total_size() >= LSM_TOL_MEM_SIZE_LIMIT) {
+  if (memtable.get_total_size() >=
+      TomlConfig::getInstance().getLsmTolMemSizeLimit()) {
     return flush();
   }
   return 0;
@@ -308,7 +311,8 @@ uint64_t LSMEngine::put_batch(
     uint64_t tranc_id) {
   memtable.put_batch(kvs, tranc_id);
   // 如果 memtable 太大，需要刷新到磁盘
-  if (memtable.get_total_size() >= LSM_TOL_MEM_SIZE_LIMIT) {
+  if (memtable.get_total_size() >=
+      TomlConfig::getInstance().getLsmTolMemSizeLimit()) {
     return flush();
   }
   return 0;
@@ -317,7 +321,8 @@ uint64_t LSMEngine::remove(const std::string &key, uint64_t tranc_id) {
   // 在 LSM 中，删除实际上是插入一个空值
   memtable.remove(key, tranc_id);
   // 如果 memtable 太大，需要刷新到磁盘
-  if (memtable.get_total_size() >= LSM_TOL_MEM_SIZE_LIMIT) {
+  if (memtable.get_total_size() >=
+      TomlConfig::getInstance().getLsmTolMemSizeLimit()) {
     return flush();
   }
   return 0;
@@ -327,7 +332,8 @@ uint64_t LSMEngine::remove_batch(const std::vector<std::string> &keys,
                                  uint64_t tranc_id) {
   memtable.remove_batch(keys, tranc_id);
   // 如果 memtable 太大，需要刷新到磁盘
-  if (memtable.get_total_size() >= LSM_TOL_MEM_SIZE_LIMIT) {
+  if (memtable.get_total_size() >=
+      TomlConfig::getInstance().getLsmTolMemSizeLimit()) {
     return flush();
   }
   return 0;
@@ -360,7 +366,8 @@ uint64_t LSMEngine::flush() {
 
   // 1. 先判断 l0 sst 是否数量超限需要concat到 l1
   if (level_sst_ids.find(0) != level_sst_ids.end() &&
-      level_sst_ids[0].size() >= LSM_SST_LEVEL_RATIO) {
+      level_sst_ids[0].size() >=
+          TomlConfig::getInstance().getLsmSstLevelRatio()) {
     full_compact(0);
   }
 
@@ -368,7 +375,8 @@ uint64_t LSMEngine::flush() {
   size_t new_sst_id = next_sst_id++;
 
   // 3. 准备 SSTBuilder
-  SSTBuilder builder(LSM_BLOCK_SIZE, true); // 4KB block size
+  SSTBuilder builder(TomlConfig::getInstance().getLsmBlockSize(),
+                     true); // 4KB block size
 
   // 4. 将 memtable 中最旧的表写入 SST
   auto sst_path = get_sst_path(new_sst_id, 0);
@@ -462,7 +470,8 @@ void LSMEngine::full_compact(size_t src_level) {
   // 将 src_level 的 sst 全体压缩到 src_level + 1
 
   // 递归地判断下一级 level 是否需要 full compact
-  if (level_sst_ids[src_level + 1].size() >= LSM_SST_LEVEL_RATIO) {
+  if (level_sst_ids[src_level + 1].size() >=
+      TomlConfig::getInstance().getLsmSstLevelRatio()) {
     full_compact(src_level + 1);
   }
 
@@ -528,7 +537,9 @@ LSMEngine::full_l0_l1_compact(std::vector<size_t> &l0_ids,
   TwoMergeIterator l0_l1_begin(l0_begin_ptr, old_l1_begin_ptr, 0);
 
   return gen_sst_from_iter(l0_l1_begin,
-                           LSM_PER_MEM_SIZE_LIMIT * LSM_SST_LEVEL_RATIO, 1);
+                           TomlConfig::getInstance().getLsmPerMemSizeLimit() *
+                               TomlConfig::getInstance().getLsmSstLevelRatio(),
+                           1);
 }
 
 std::vector<std::shared_ptr<SST>>
@@ -566,7 +577,8 @@ LSMEngine::gen_sst_from_iter(BaseIterator &iter, size_t target_sst_size,
   // TODO: 这里需要补全的是对已经完成事务的删除
 
   std::vector<std::shared_ptr<SST>> new_ssts;
-  auto new_sst_builder = SSTBuilder(LSM_BLOCK_SIZE, true);
+  auto new_sst_builder =
+      SSTBuilder(TomlConfig::getInstance().getLsmBlockSize(), true);
   while (iter.is_valid() && !iter.is_end()) {
 
     new_sst_builder.add((*iter).first, (*iter).second, 0);
@@ -577,7 +589,8 @@ LSMEngine::gen_sst_from_iter(BaseIterator &iter, size_t target_sst_size,
       std::string sst_path = get_sst_path(sst_id, target_level);
       auto new_sst = new_sst_builder.build(sst_id, sst_path, this->block_cache);
       new_ssts.push_back(new_sst);
-      new_sst_builder = SSTBuilder(LSM_BLOCK_SIZE, true); // 重置builder
+      new_sst_builder = SSTBuilder(TomlConfig::getInstance().getLsmBlockSize(),
+                                   true); // 重置builder
     }
   }
   if (new_sst_builder.estimated_size() > 0) {
@@ -592,10 +605,11 @@ LSMEngine::gen_sst_from_iter(BaseIterator &iter, size_t target_sst_size,
 
 size_t LSMEngine::get_sst_size(size_t level) {
   if (level == 0) {
-    return LSM_PER_MEM_SIZE_LIMIT;
+    return TomlConfig::getInstance().getLsmPerMemSizeLimit();
   } else {
-    return LSM_PER_MEM_SIZE_LIMIT *
-           static_cast<size_t>(std::pow(LSM_SST_LEVEL_RATIO, level));
+    return TomlConfig::getInstance().getLsmPerMemSizeLimit() *
+           static_cast<size_t>(std::pow(
+               TomlConfig::getInstance().getLsmSstLevelRatio(), level));
   }
 }
 

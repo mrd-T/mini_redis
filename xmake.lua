@@ -13,6 +13,10 @@ if is_mode("debug") then
     add_defines("LSM_DEBUG")
 end
 
+target("config")
+    set_kind("static")  -- 生成静态库
+    add_files("src/config/*.cpp")
+    add_includedirs("include", {public = true})
 
 target("utils")
     set_kind("static")  -- 生成静态库
@@ -31,13 +35,14 @@ target("skiplist")
 
 target("memtable")
     set_kind("static")  -- 生成静态库
-    add_deps("skiplist","iterator")
+    add_deps("skiplist","iterator", "config")
     add_deps("sst")
     add_files("src/memtable/*.cpp")
     add_includedirs("include", {public = true})
 
 target("block")
     set_kind("static")  -- 生成静态库
+    add_deps("config")
     add_files("src/block/*.cpp")
     add_includedirs("include", {public = true})
 
@@ -79,6 +84,13 @@ target("lsm_shared")
     end)
 
 -- 定义测试
+target("test_config")
+    set_kind("binary")  -- 生成可执行文件
+    set_group("tests")
+    add_files("test/test_config.cpp")
+    add_deps("config")  -- 依赖skiplist库
+    add_packages("gtest")  -- 添加gtest包
+
 target("test_skiplist")
     set_kind("binary")  -- 生成可执行文件
     set_group("tests")

@@ -1,4 +1,5 @@
 #include "../../include/redis_wrapper/redis_wrapper.h"
+#include "../../include/config/config.h"
 #include "../../include/consts.h"
 #include <algorithm>
 #include <cstddef>
@@ -9,9 +10,9 @@
 #include <shared_mutex>
 #include <sstream>
 #include <string>
+#include <unordered_set>
 #include <utility>
 #include <vector>
-#include <unordered_set>
 
 // Helper functions
 RedisWrapper::RedisWrapper(const std::string &db_path) {
@@ -23,14 +24,15 @@ get_fileds_from_hash_value(const std::optional<std::string> &field_list_opt) {
   std::string field_list = field_list_opt.value_or("");
   if (!field_list.empty()) {
     // 去除前缀后才是字段列表
-    std::string preffix = REDIS_HASH_VALUE_PREFFIX;
+    std::string preffix = TomlConfig::getInstance().getRedisHashValuePreffix();
     field_list =
         field_list.substr(preffix.size(), field_list.size() - preffix.size());
   }
   std::vector<std::string> fields;
   std::istringstream iss(field_list);
   std::string token;
-  while (std::getline(iss, token, REDIS_FIELD_SEPARATOR)) {
+  while (std::getline(iss, token,
+                      TomlConfig::getInstance().getRedisFieldSeparator())) {
     fields.push_back(token);
   }
   return fields;
@@ -38,10 +40,10 @@ get_fileds_from_hash_value(const std::optional<std::string> &field_list_opt) {
 
 std::string get_hash_value_from_fields(const std::vector<std::string> &fields) {
   std::ostringstream oss;
-  oss << REDIS_HASH_VALUE_PREFFIX;
+  oss << TomlConfig::getInstance().getRedisHashValuePreffix();
   for (size_t i = 0; i < fields.size(); ++i) {
     if (i > 0)
-      oss << REDIS_FIELD_SEPARATOR;
+      oss << TomlConfig::getInstance().getRedisFieldSeparator();
     oss << fields[i];
   }
   return oss.str();
@@ -49,43 +51,46 @@ std::string get_hash_value_from_fields(const std::vector<std::string> &fields) {
 
 inline std::string get_hash_filed_key(const std::string &key,
                                       const std::string &field) {
-  return REDIS_FIELD_PREFIX + key + "_" + field;
+  return TomlConfig::getInstance().getRedisFieldPrefix() + key + "_" + field;
 }
 
 inline bool is_value_hash(const std::string &key) {
-  return key.find(REDIS_HASH_VALUE_PREFFIX) == 0;
+  return key.find(TomlConfig::getInstance().getRedisHashValuePreffix()) == 0;
 }
 
 inline std::string get_explire_key(const std::string &key) {
-  return REDIS_EXPIRE_HEADER + key;
+  return TomlConfig::getInstance().getRedisExpireHeader() + key;
 }
 
 std::string get_zset_key_socre(const std::string &key,
                                const std::string &score) {
   std::ostringstream oss;
-  oss << std::setw(REDIS_SORTED_SET_SCORE_LEN) << std::setfill('0') << score;
+  oss << std::setw(TomlConfig::getInstance().getRedisSortedSetScoreLen())
+      << std::setfill('0') << score;
 
   std::string formatted_score = oss.str();
 
-  std::string res = REDIS_SORTED_SET_PREFIX + key + "_SCORE_" + formatted_score;
+  std::string res = TomlConfig::getInstance().getRedisSortedSetPrefix() + key +
+                    "_SCORE_" + formatted_score;
   return res;
 }
 
 inline std::string get_zset_key_elem(const std::string &key,
                                      const std::string &elem) {
-  return REDIS_SORTED_SET_PREFIX + key + "_ELEM_" + elem;
+  return TomlConfig::getInstance().getRedisSortedSetPrefix() + key + "_ELEM_" +
+         elem;
 }
 
 inline std::string get_zset_key_preffix(const std::string &key) {
-  return REDIS_SORTED_SET_PREFIX + key + "_";
+  return TomlConfig::getInstance().getRedisSortedSetPrefix() + key + "_";
 }
 
 inline std::string get_zset_score_preffix(const std::string &key) {
-  return REDIS_SORTED_SET_PREFIX + key + "_SCORE_";
+  return TomlConfig::getInstance().getRedisSortedSetPrefix() + key + "_SCORE_";
 }
 
 inline std::string get_zset_elem_preffix(const std::string &key) {
-  return REDIS_SORTED_SET_PREFIX + key + "_ELEM_";
+  return TomlConfig::getInstance().getRedisSortedSetPrefix() + key + "_ELEM_";
 }
 
 inline std::string get_zset_score_item(const std::string &key) {
@@ -104,18 +109,18 @@ inline std::string get_zset_score_item(const std::string &key) {
 }
 
 inline std::string get_set_key_preffix(const std::string &key) {
-  return REDIS_SET_PREFIX + key + "_";
+  return TomlConfig::getInstance().getRedisSetPrefix() + key + "_";
 }
 
 inline std::string get_set_member_key(const std::string &key,
                                       const std::string &elem) {
-  return REDIS_SET_PREFIX + key + "_" + elem;
+  return TomlConfig::getInstance().getRedisSetPrefix() + key + "_" + elem;
 }
 
 inline std::string get_set_member_value() { return "1"; }
 
 inline std::string get_set_member_prefix(const std::string &key) {
-  return REDIS_SET_PREFIX + key + "_";
+  return TomlConfig::getInstance().getRedisSetPrefix() + key + "_";
 }
 
 bool is_expired(const std::optional<std::string> &expire_str,
@@ -294,17 +299,18 @@ std::string RedisWrapper::ttl(std::vector<std::string> &args) {
 // 哈希操作
 std::string RedisWrapper::hset(std::vector<std::string> &args) {
   // return redis_hset(args[1], args[2], args[3]);
-  if (args.size() < 4 || (args.size()-1) % 2 != 1) {
+  if (args.size() < 4 || (args.size() - 1) % 2 != 1) {
     return "-ERR wrong number of arguments for 'hset' command\r\n";
   }
 
-  const std::string& key = args[1];
+  const std::string &key = args[1];
   std::vector<std::pair<std::string, std::string>> fieldValues;
 
   // 从第2个参数开始，每两个为一组 field-value
   for (size_t i = 2; i < args.size(); i += 2) {
-    if (i+1 >= args.size()) break; // 防止越界
-    fieldValues.emplace_back(args[i], args[i+1]);
+    if (i + 1 >= args.size())
+      break; // 防止越界
+    fieldValues.emplace_back(args[i], args[i + 1]);
   }
   return redis_hset_batch(key, fieldValues);
 }
@@ -555,7 +561,9 @@ std::string RedisWrapper::redis_ttl(std::string &key) {
 }
 
 // 哈希操作
-std::string RedisWrapper::redis_hset_batch(const std::string &key, std::vector<std::pair<std::string, std::string>> &field_value_pairs){
+std::string RedisWrapper::redis_hset_batch(
+    const std::string &key,
+    std::vector<std::pair<std::string, std::string>> &field_value_pairs) {
   std::shared_lock<std::shared_mutex> rlock(redis_mtx);
   bool is_expired = expire_hash_clean(key, rlock);
 
@@ -566,13 +574,15 @@ std::string RedisWrapper::redis_hset_batch(const std::string &key, std::vector<s
 
   // 获取现有字段列表
   auto field_list_opt = lsm->get(key);
-  std::vector<std::string> field_list = get_fileds_from_hash_value(field_list_opt);
-  
+  std::vector<std::string> field_list =
+      get_fileds_from_hash_value(field_list_opt);
+
   int added_count = 0;
-  std::unordered_set<std::string> existing_fields(field_list.begin(), field_list.end());
+  std::unordered_set<std::string> existing_fields(field_list.begin(),
+                                                  field_list.end());
 
   // 批量处理字段
-  for (const auto& [field, value] : field_value_pairs) {
+  for (const auto &[field, value] : field_value_pairs) {
     std::string field_key = get_hash_filed_key(key, field);
     lsm->put(field_key, value);
 
@@ -719,13 +729,17 @@ std::string RedisWrapper::redis_lpush(const std::string &key,
   auto list_opt = lsm->get(key);
   std::string list_value = list_opt.value_or("");
   if (!list_value.empty()) {
-    list_value = value + REDIS_LIST_SEPARATOR + list_value;
+    list_value =
+        value + TomlConfig::getInstance().getRedisListSeparator() + list_value;
   } else {
     list_value = value;
   }
 
   lsm->put(key, list_value);
-  return ":" + std::to_string(split(list_value, REDIS_LIST_SEPARATOR).size()) +
+  return ":" +
+         std::to_string(split(list_value,
+                              TomlConfig::getInstance().getRedisListSeparator())
+                            .size()) +
          "\r\n";
 }
 
@@ -745,13 +759,17 @@ std::string RedisWrapper::redis_rpush(const std::string &key,
   auto list_opt = lsm->get(key);
   std::string list_value = list_opt.value_or("");
   if (!list_value.empty()) {
-    list_value = list_value + REDIS_LIST_SEPARATOR + value;
+    list_value =
+        list_value + TomlConfig::getInstance().getRedisListSeparator() + value;
   } else {
     list_value = value;
   }
 
   lsm->put(key, list_value);
-  return ":" + std::to_string(split(list_value, REDIS_LIST_SEPARATOR).size()) +
+  return ":" +
+         std::to_string(split(list_value,
+                              TomlConfig::getInstance().getRedisListSeparator())
+                            .size()) +
          "\r\n";
 }
 
@@ -772,8 +790,8 @@ std::string RedisWrapper::redis_lpop(const std::string &key) {
     return "$-1\r\n"; // 表示链表不存在
   }
 
-  std::vector<std::string> elements =
-      split(list_opt.value(), REDIS_LIST_SEPARATOR);
+  std::vector<std::string> elements = split(
+      list_opt.value(), TomlConfig::getInstance().getRedisListSeparator());
   if (elements.empty()) {
     return "$-1\r\n"; // 表示链表为空
   }
@@ -784,7 +802,8 @@ std::string RedisWrapper::redis_lpop(const std::string &key) {
   if (elements.empty()) {
     lsm->remove(key);
   } else {
-    lsm->put(key, join(elements, REDIS_LIST_SEPARATOR));
+    lsm->put(key,
+             join(elements, TomlConfig::getInstance().getRedisListSeparator()));
   }
   return "$" + std::to_string(value.size()) + "\r\n" + value + "\r\n";
 }
@@ -806,8 +825,8 @@ std::string RedisWrapper::redis_rpop(const std::string &key) {
     return "$-1\r\n"; // 表示链表不存在
   }
 
-  std::vector<std::string> elements =
-      split(list_opt.value(), REDIS_LIST_SEPARATOR);
+  std::vector<std::string> elements = split(
+      list_opt.value(), TomlConfig::getInstance().getRedisListSeparator());
   if (elements.empty()) {
     return "$-1\r\n"; // 表示链表为空
   }
@@ -818,7 +837,8 @@ std::string RedisWrapper::redis_rpop(const std::string &key) {
   if (elements.empty()) {
     lsm->remove(key);
   } else {
-    lsm->put(key, join(elements, REDIS_LIST_SEPARATOR));
+    lsm->put(key,
+             join(elements, TomlConfig::getInstance().getRedisListSeparator()));
   }
   return "$" + std::to_string(value.size()) + "\r\n" + value + "\r\n";
 }
@@ -836,8 +856,8 @@ std::string RedisWrapper::redis_llen(const std::string &key) {
     return ":0\r\n"; // 表示链表不存在
   }
 
-  std::vector<std::string> elements =
-      split(list_opt.value(), REDIS_LIST_SEPARATOR);
+  std::vector<std::string> elements = split(
+      list_opt.value(), TomlConfig::getInstance().getRedisListSeparator());
   return ":" + std::to_string(elements.size()) + "\r\n";
 }
 
@@ -855,8 +875,8 @@ std::string RedisWrapper::redis_lrange(const std::string &key, int start,
     return "*0\r\n"; // 表示链表不存在
   }
 
-  std::vector<std::string> elements =
-      split(list_opt.value(), REDIS_LIST_SEPARATOR);
+  std::vector<std::string> elements = split(
+      list_opt.value(), TomlConfig::getInstance().getRedisListSeparator());
   if (elements.empty()) {
     return "*0\r\n"; // 表示链表为空
   }

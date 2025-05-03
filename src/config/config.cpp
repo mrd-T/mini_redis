@@ -1,6 +1,7 @@
 #include "../../include/config/config.h"
 
-#include <iostream> // For std::cerr, std::endl
+#include <filesystem>
+#include <iostream>
 
 // Private helper to set all default values
 void TomlConfig::setDefaultValues() {
@@ -30,7 +31,8 @@ void TomlConfig::setDefaultValues() {
 }
 
 // Constructor implementation
-TomlConfig::TomlConfig(const std::string &filePath) {
+TomlConfig::TomlConfig(const std::string &filePath)
+    : config_file_path_(filePath) {
   // Initialize member variables with default values upon creation
   if (filePath.empty()) {
     setDefaultValues();
@@ -165,8 +167,84 @@ double TomlConfig::getBloomFilterExpectedErrorRate() const {
 }
 
 const TomlConfig &TomlConfig::getInstance(const std::string &config_path) {
-  // Static instance ensures single creation upon first call
-
-  static const TomlConfig instance(config_path);
+  // 静态实例确保只创建一次
+  static const TomlConfig instance([&]() -> std::string {
+    // 检查文件是否存在且可读
+    std::ifstream file(config_path);
+    if (file.good()) {
+      return config_path;
+    } else {
+      std::cerr << "Config file not found or unreadable: " << config_path
+                << ", using default configuration" << std::endl;
+      return "config.toml"; // 使用空路径初始化默认配置
+    }
+  }());
   return instance;
+}
+
+TomlConfig::~TomlConfig() {
+  // 如果配置文件不存在，则持久化当前配置
+  if (!config_file_path_.empty()) {
+    std::ifstream file(config_file_path_);
+    if (!file.good()) {
+      saveToFile(config_file_path_);
+    }
+  }
+}
+
+// 在config.cpp中添加saveToFile方法实现
+bool TomlConfig::saveToFile(const std::string &filePath) {
+  try {
+    // 创建TOML表格结构
+    toml::table config;
+
+    // --- LSM Core ---
+    config["lsm"]["core"]["LSM_TOL_MEM_SIZE_LIMIT"] = lsm_tol_mem_size_limit_;
+    config["lsm"]["core"]["LSM_PER_MEM_SIZE_LIMIT"] = lsm_per_mem_size_limit_;
+    config["lsm"]["core"]["LSM_BLOCK_SIZE"] = lsm_block_size_;
+    config["lsm"]["core"]["LSM_SST_LEVEL_RATIO"] = lsm_sst_level_ratio_;
+
+    // --- LSM Cache ---
+    config["lsm"]["cache"]["LSM_BLOCK_CACHE_CAPACITY"] =
+        lsm_block_cache_capacity_;
+    config["lsm"]["cache"]["LSM_BLOCK_CACHE_K"] = lsm_block_cache_k_;
+
+    // --- Redis Headers/Separators ---
+    config["redis"]["REDIS_EXPIRE_HEADER"] = redis_expire_header_;
+    config["redis"]["REDIS_HASH_VALUE_PREFFIX"] = redis_hash_value_preffix_;
+    config["redis"]["REDIS_FIELD_PREFIX"] = redis_field_prefix_;
+    config["redis"]["REDIS_FIELD_SEPARATOR"] =
+        std::string(1, redis_field_separator_);
+    config["redis"]["REDIS_LIST_SEPARATOR"] =
+        std::string(1, redis_list_separator_);
+    config["redis"]["REDIS_SORTED_SET_PREFIX"] = redis_sorted_set_prefix_;
+    config["redis"]["REDIS_SORTED_SET_SCORE_LEN"] = redis_sorted_set_score_len_;
+    config["redis"]["REDIS_SET_PREFIX"] = redis_set_prefix_;
+
+    // --- Bloom Filter ---
+    config["bloom_filter"]["BLOOM_FILTER_EXPECTED_SIZE"] =
+        bloom_filter_expected_size_;
+    config["bloom_filter"]["BLOOM_FILTER_EXPECTED_ERROR_RATE"] =
+        bloom_filter_expected_error_rate_;
+
+    // 写入到文件
+    std::ofstream outFile(filePath);
+    if (outFile.is_open()) {
+      const toml::value config_value(config);
+      // 使用 toml::format 将 table 转换为字符串形式
+      std::string config_str = toml::format(config_value);
+      outFile << config_str;
+      outFile.close();
+      std::cout << "Configuration saved successfully to " << filePath
+                << std::endl;
+      return true;
+    } else {
+      std::cerr << "Failed to open file for writing: " << filePath << std::endl;
+      return false;
+    }
+  } catch (const std::exception &err) {
+    std::cerr << "An error occurred while saving configuration to " << filePath
+              << ": " << err.what() << std::endl;
+    return false;
+  }
 }

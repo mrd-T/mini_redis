@@ -9,6 +9,8 @@
 
 class TomlConfig {
 private:
+  std::string config_file_path_; // 记录配置文件路径
+
   // --- LSM Core ---
   long long lsm_tol_mem_size_limit_;
   long long lsm_per_mem_size_limit_;
@@ -36,7 +38,6 @@ private:
   // Private method to set default values
   void setDefaultValues();
 
-public:
   // Constructor
   TomlConfig(const std::string &filePath);
 
@@ -44,6 +45,11 @@ public:
   // Returns true on success, false on failure (e.g., file not found, parse
   // error)
   bool loadFromFile(const std::string &filePath);
+
+  bool saveToFile(const std::string &filePath);
+
+public:
+  ~TomlConfig();
 
   // --- Getter Methods ---
   // Declare all your getter methods here
@@ -67,5 +73,6 @@ public:
   int getBloomFilterExpectedSize() const;
   double getBloomFilterExpectedErrorRate() const;
 
-  static const TomlConfig &getInstance(const std::string &config_path = "");
+  static const TomlConfig &
+  getInstance(const std::string &config_path = "config.toml");
 };

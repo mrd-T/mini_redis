@@ -218,7 +218,9 @@ db.get("tomxx")
 We welcome contributions for developing SDKs in other programming languages.
 
 ## Lab Construction
-I have a plan to make this project a step-to-step Lab like `CMU15445` or `MIT 6.824`. If you are interested in this project, please feel free to join us. 
+I have a plan to make this project a step-to-step Lab like `CMU15445` or `MIT 6.824`. If you are interested in this project, please feel free to contact me by emial: xwdtoni@126.com.
+
+Besides, the branch `lab-dev` is a development branch for the lab construction.
 
 # License
 This project is licensed under the MIT License.

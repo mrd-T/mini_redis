@@ -1,6 +1,7 @@
 #include "../../include/skiplist/skiplist.h"
 #include <cstdint>
 #include <iostream>
+#include <spdlog/spdlog.h>
 #include <stdexcept>
 #include <tuple>
 #include <utility>
@@ -68,6 +69,8 @@ int SkipList::random_level() {
 // 插入或更新键值对
 void SkipList::put(const std::string &key, const std::string &value,
                    uint64_t tranc_id) {
+  spdlog::trace("SkipList--put({}, {}, {})", key, value, tranc_id);
+
   std::vector<std::shared_ptr<SkipListNode>> update(max_level, nullptr);
 
   // 先创建一个新节点
@@ -83,6 +86,9 @@ void SkipList::put(const std::string &key, const std::string &value,
     while (current->forward_[i] && *current->forward_[i] < *new_node) {
       current = current->forward_[i];
     }
+    spdlog::trace("SkipList--put({}, {}, {}), level{} needs updating", key,
+                  value, tranc_id, i);
+
     update[i] = current;
   }
 
@@ -94,6 +100,11 @@ void SkipList::put(const std::string &key, const std::string &value,
     size_bytes += value.size() - current->value_.size();
     current->value_ = value;
     current->tranc_id_ = tranc_id;
+
+    spdlog::trace("SkipList--put({}, {}, {}), key and tranc_id_ is the same, "
+                  "only update value to {}",
+                  key, value, tranc_id, value);
+
     return;
   }
 
@@ -102,6 +113,9 @@ void SkipList::put(const std::string &key, const std::string &value,
   if (new_level > current_level) {
     for (int i = current_level; i < new_level; ++i) {
       update[i] = head;
+
+      spdlog::trace("SkipList--put({}, {}, {}), update level{} to head", key,
+                    value, tranc_id, i);
     }
   }
 
@@ -140,6 +154,7 @@ void SkipList::put(const std::string &key, const std::string &value,
 // 查找键值对
 SkipListIterator SkipList::get(const std::string &key, uint64_t tranc_id) {
   // std::shared_lock<std::shared_mutex> slock(rw_mutex);
+  spdlog::trace("SkipList--get({}) called", key);
 
   auto current = head;
   // 从最高层开始查找
@@ -175,6 +190,7 @@ SkipListIterator SkipList::get(const std::string &key, uint64_t tranc_id) {
     }
   }
   // 未找到返回空
+  spdlog::trace("SkipList--get({}): not found", key);
   return SkipListIterator{};
 }
 
@@ -228,6 +244,7 @@ void SkipList::remove(const std::string &key) {
 // 刷盘时可以直接遍历最底层链表
 std::vector<std::tuple<std::string, std::string, uint64_t>> SkipList::flush() {
   // std::shared_lock<std::shared_mutex> slock(rw_mutex);
+  spdlog::debug("SkipList--flush(): Starting to flush skiplist data");
 
   std::vector<std::tuple<std::string, std::string, uint64_t>> data;
   auto node = head->forward_[0];
@@ -235,6 +252,9 @@ std::vector<std::tuple<std::string, std::string, uint64_t>> SkipList::flush() {
     data.emplace_back(node->key_, node->value_, node->tranc_id_);
     node = node->forward_[0];
   }
+
+  spdlog::debug("SkipList--flush(): Flushed {} entries", data.size());
+
   return data;
 }
 
@@ -263,6 +283,7 @@ SkipListIterator SkipList::end() {
 // 返回第一个前缀匹配或者大于前缀的迭代器
 SkipListIterator SkipList::begin_preffix(const std::string &preffix) {
   // std::shared_lock<std::shared_mutex> slock(rw_mutex);
+  spdlog::trace("SkipList--begin_preffix('{}') called", preffix);
 
   auto current = head;
   // 从最高层开始查找
@@ -274,11 +295,18 @@ SkipListIterator SkipList::begin_preffix(const std::string &preffix) {
   // 移动到最底层
   current = current->forward_[0];
 
+  if (current && current->key_ == preffix) {
+    spdlog::trace("SkipList--begin_preffix('{}'): first match at '{}'", preffix,
+                  current->key_);
+  }
+
   return SkipListIterator(current);
 }
 
 // 找到前缀的终结位置
 SkipListIterator SkipList::end_preffix(const std::string &prefix) {
+  spdlog::trace("SkipList--end_preffix('{}') called", prefix);
+
   auto current = head;
 
   // 从最高层开始查找
@@ -294,6 +322,14 @@ SkipListIterator SkipList::end_preffix(const std::string &prefix) {
   // 找到第一个键不以给定前缀开头的节点
   while (current && current->key_.substr(0, prefix.size()) == prefix) {
     current = current->forward_[0];
+  }
+
+  if (current) {
+    spdlog::trace("SkipList--begin_preffix('{}'): end at '{}'", prefix,
+                  current->key_);
+  } else {
+    spdlog::trace("SkipList--begin_preffix('{}'): end at the skiplist end",
+                  prefix);
   }
 
   // 返回当前节点的迭代器
@@ -343,6 +379,8 @@ SkipList::iters_monotony_predicate(
 
   if (!find1) {
     // 无法找到第一个满足谓词的迭代器, 直接返回
+    spdlog::trace("SkipList--iters_monotony_predicate(): no match found");
+
     return std::nullopt;
   }
 
@@ -371,6 +409,8 @@ SkipList::iters_monotony_predicate(
       } else {
         // 因为当前位置满足了谓词, 前一个位置不可能返回-1
         // 这种情况属于跳表实现错误, 需要排查
+        spdlog::error("iters_predicate: invalid direction");
+
         throw std::runtime_error("iters_predicate: invalid direction");
       }
     }
@@ -398,6 +438,9 @@ SkipList::iters_monotony_predicate(
       } else {
         // 因为当前位置满足了谓词, 后一个位置不可能返回1
         // 这种情况属于跳表实现错误, 需要排查
+
+        spdlog::error("iters_predicate: invalid direction");
+
         throw std::runtime_error("iters_predicate: invalid direction");
       }
     }
@@ -406,6 +449,8 @@ SkipList::iters_monotony_predicate(
   end_iter = SkipListIterator(current2);
   // 转化为开区间
   ++end_iter;
+
+  spdlog::trace("SkipList--iters_monotony_predicate(): range found");
 
   return std::make_optional<std::pair<SkipListIterator, SkipListIterator>>(
       begin_iter, end_iter);

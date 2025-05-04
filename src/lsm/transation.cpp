@@ -1,6 +1,7 @@
 #include "../../include/lsm/engine.h"
 #include "../../include/lsm/transaction.h"
 #include "../../include/utils/files.h"
+#include "spdlog/spdlog.h"
 #include <algorithm>
 #include <cerrno>
 #include <cstdint>
@@ -10,6 +11,21 @@
 #include <mutex>
 #include <thread>
 #include <vector>
+
+inline std::string isolation_level_to_string(const IsolationLevel &level) {
+  switch (level) {
+  case IsolationLevel::READ_UNCOMMITTED:
+    return "READ_UNCOMMITTED";
+  case IsolationLevel::READ_COMMITTED:
+    return "READ_COMMITTED";
+  case IsolationLevel::REPEATABLE_READ:
+    return "REPEATABLE_READ";
+  case IsolationLevel::SERIALIZABLE:
+    return "SERIALIZABLE";
+  default:
+    return "UNKNOWN";
+  }
+}
 
 // *********************** TranContext ***********************
 TranContext::TranContext(uint64_t tranc_id, std::shared_ptr<LSMEngine> engine,
@@ -21,6 +37,10 @@ TranContext::TranContext(uint64_t tranc_id, std::shared_ptr<LSMEngine> engine,
 }
 
 void TranContext::put(const std::string &key, const std::string &value) {
+  spdlog::trace("LSM--"
+                "lsm_iters_monotony_predicate: Starting query for tranc_id={}",
+                this->tranc_id_);
+
   auto isolation_level = get_isolation_level();
 
   // 所有隔离级别都需要先写入 operations 中
@@ -32,14 +52,24 @@ void TranContext::put(const std::string &key, const std::string &value) {
     auto prev_record = engine_->get(key, 0);
     rollback_map_[key] = prev_record;
     engine_->put(key, value, tranc_id_);
+
+    spdlog::trace(
+        "TranContext--READ_UNCOMMITTED: put({}, {}) applied to memtable", key,
+        value);
+
     return;
   }
 
   // 2 其他隔离级别需要 暂存到 temp_map_ 中, 统一提交后才在数据库中生效
   temp_map_[key] = value;
+
+  spdlog::trace("TranContext--{}: put({}, {}) stored in temp map",
+                isolation_level_to_string(isolation_level_), key, value);
 }
 
 void TranContext::remove(const std::string &key) {
+  spdlog::trace("TranContext--remove({}) called, tranc_id={}", key, tranc_id_);
+
   auto isolation_level = get_isolation_level();
 
   // 所有隔离级别都需要先写入 operations 中
@@ -51,20 +81,31 @@ void TranContext::remove(const std::string &key) {
     auto prev_record = engine_->get(key, 0);
     rollback_map_[key] = prev_record;
     engine_->remove(key, tranc_id_);
+
+    spdlog::trace(
+        "TranContext--READ_UNCOMMITTED: remove({}) applied to memtable", key);
+
     return;
   }
 
   // 2 其他隔离级别需要 暂存到 temp_map_ 中, 统一提交后才在数据库中生效
   temp_map_[key] = "";
+  spdlog::trace("TranContext--{}: remove({}) stored in temp map",
+                isolation_level_to_string(isolation_level_), key);
 }
 
 std::optional<std::string> TranContext::get(const std::string &key) {
+  spdlog::trace("TranContext--get({}) called, tranc_id={}", key, tranc_id_);
+
   auto isolation_level = get_isolation_level();
 
   // 1 所有隔离级别先就近在当前操作的临时缓存中查找
   if (temp_map_.find(key) != temp_map_.end()) {
     // READ_UNCOMMITTED 随单次操作更新数据库, 不需要最后的统一更新
     // 这一步骤肯定会自然跳过的
+    spdlog::trace("TranContext--{}: get({}) found in temp map",
+                  isolation_level_to_string(isolation_level), key);
+
     return temp_map_[key];
   }
 
@@ -89,12 +130,21 @@ std::optional<std::string> TranContext::get(const std::string &key) {
     }
   }
   if (query.has_value()) {
-    return query->first;
+    spdlog::trace("TranContext--{}: get({}) returned value={}",
+                  isolation_level_to_string(isolation_level), key,
+                  query->first);
+  } else {
+    spdlog::trace("TranContext--{}: get({}) returned no value",
+                  isolation_level_to_string(isolation_level), key);
   }
-  return std::nullopt;
+
+  return query.has_value() ? std::make_optional(query->first) : std::nullopt;
 }
 
 bool TranContext::commit(bool test_fail) {
+  spdlog::info("TranContext--commit(): Starting commit for transaction ID={}",
+               tranc_id_);
+
   auto isolation_level = get_isolation_level();
 
   if (isolation_level == IsolationLevel::READ_UNCOMMITTED) {
@@ -106,10 +156,19 @@ bool TranContext::commit(bool test_fail) {
     auto wal_success = tranManager_->write_to_wal(operations);
 
     if (!wal_success) {
+      spdlog::error(
+          "TranContext--commit(): Failed to write WAL for transaction ID={}",
+          tranc_id_);
+
       throw std::runtime_error("write to wal failed");
     }
     isCommited = true;
     tranManager_->update_max_finished_tranc_id(tranc_id_);
+
+    spdlog::info(
+        "TranContext--commit(): Transaction ID={} committed successfully",
+        tranc_id_);
+
     return true;
   }
 
@@ -141,6 +200,11 @@ bool TranContext::commit(bool test_fail) {
         // 表示更晚创建的事务修改了相同的key, 并先提交, 发生了冲突
         // 需要终止事务
         isAborted = true;
+
+        spdlog::warn("TranContext--commit(): Conflict detected on key={}, "
+                     "aborting transaction ID={}",
+                     k, tranc_id_);
+
         return false;
       } else {
         // 步骤2: 判断sst中是否是否存在冲突
@@ -159,6 +223,11 @@ bool TranContext::commit(bool test_fail) {
             // 表示更晚创建的事务修改了相同的key, 并先提交, 发生了冲突
             // 需要终止事务
             isAborted = true;
+
+            spdlog::warn("TranContext--commit(): SST conflict on key={}, "
+                         "aborting transaction ID={}",
+                         k, tranc_id_);
+
             return false;
           }
         }
@@ -175,6 +244,10 @@ bool TranContext::commit(bool test_fail) {
   auto wal_success = tranManager_->write_to_wal(operations);
 
   if (!wal_success) {
+    spdlog::error(
+        "TranContext--commit(): Failed to write WAL for transaction ID={}",
+        tranc_id_);
+
     throw std::runtime_error("write to wal failed");
   }
 
@@ -188,11 +261,18 @@ bool TranContext::commit(bool test_fail) {
 
   isCommited = true;
   tranManager_->update_max_finished_tranc_id(tranc_id_);
+
+  spdlog::info(
+      "TranContext--commit(): Transaction ID={} committed successfully",
+      tranc_id_);
+
   return true;
 }
 
 bool TranContext::abort() {
   auto isolation_level = get_isolation_level();
+  spdlog::info("TranContext--abort(): Aborting transaction ID={}", tranc_id_);
+
   if (isolation_level == IsolationLevel::READ_UNCOMMITTED) {
     // 需要手动恢复之前的更改
     // TODO: 需要使用批量化操作优化性能
@@ -205,6 +285,8 @@ bool TranContext::abort() {
       }
     }
     isAborted = true;
+
+    spdlog::info("TranContext--abort(): Transaction ID={} aborted", tranc_id_);
 
     return true;
   }
@@ -244,6 +326,8 @@ TranManager::TranManager(std::string data_dir) : data_dir_(data_dir) {
 }
 
 void TranManager::init_new_wal() {
+  spdlog::info("TranManager--init_new_wal(): Cleaning up old WAL files");
+
   // TODO: 1 和 4096 应该统一用宏定义
   // 先清理掉所有 wal. 开头的文件, 因为其已经被重放过了
   for (const auto &entry : std::filesystem::directory_iterator(data_dir_)) {
@@ -252,6 +336,8 @@ void TranManager::init_new_wal() {
     }
   }
   wal = std::make_shared<WAL>(data_dir_, 128, max_finished_tranc_id_, 1, 4096);
+
+  spdlog::info("TranManager--init_new_wal(): New WAL initialized");
 }
 
 void TranManager::set_engine(std::shared_ptr<LSMEngine> engine) {
@@ -329,12 +415,21 @@ uint64_t TranManager::get_max_finished_tranc_id_() {
 
 std::shared_ptr<TranContext>
 TranManager::new_tranc(const IsolationLevel &isolation_level) {
+  spdlog::debug("TranManager--new_tranc(): Creating new transaction with "
+                "isolation level={}",
+                static_cast<int>(isolation_level));
+
   // 获取锁
   std::unique_lock<std::mutex> lock(mutex_);
 
   auto tranc_id = getNextTransactionId();
   activeTrans_[tranc_id] = std::make_shared<TranContext>(
       tranc_id, engine_, shared_from_this(), isolation_level);
+
+  spdlog::debug("TranManager--new_tranc(): Created transaction ID={} with "
+                "isolation level={}",
+                tranc_id, static_cast<int>(isolation_level));
+
   return activeTrans_[tranc_id];
 }
 std::string TranManager::get_tranc_id_file_path() {
@@ -345,17 +440,33 @@ std::string TranManager::get_tranc_id_file_path() {
 }
 
 std::map<uint64_t, std::vector<Record>> TranManager::check_recover() {
+  spdlog::info("TranManager--check_recover(): Starting recovery from WAL");
+
   std::map<uint64_t, std::vector<Record>> wal_records =
       WAL::recover(data_dir_, max_flushed_tranc_id_);
+
+  spdlog::info("TranManager--check_recover(): Recovered {} transactions",
+               wal_records.size());
+
   return wal_records;
 }
 
 bool TranManager::write_to_wal(const std::vector<Record> &records) {
+  spdlog::trace("TranManager--write_to_wal(): Writing {} records to WAL",
+                records.size());
+
   try {
     wal->log(records, true);
   } catch (const std::exception &e) {
+    spdlog::error("TranManager--write_to_wal(): Exception occurred: {}",
+                  e.what());
+
     return false;
   }
+
+  spdlog::trace(
+      "TranManager--write_to_wal(): Successfully wrote {} records to WAL",
+      records.size());
 
   return true;
 }

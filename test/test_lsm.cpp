@@ -1,8 +1,9 @@
+#include "../include/logger/logger.h"
 #include "../include/lsm/engine.h"
+#include "../include/lsm/level_iterator.h"
 #include <cstdlib>
 #include <filesystem>
 #include <gtest/gtest.h>
-#include "../include/lsm/level_iterator.h"
 #include <string>
 #include <unordered_map>
 
@@ -334,5 +335,6 @@ TEST_F(LSMTest, Recover) {
 }
 int main(int argc, char **argv) {
   testing::InitGoogleTest(&argc, argv);
+  init_spdlog_file();
   return RUN_ALL_TESTS();
 }

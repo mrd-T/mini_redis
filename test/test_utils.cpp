@@ -1,3 +1,4 @@
+#include "../include/logger/logger.h"
 #include "../include/utils/bloom_filter.h"
 #include "../include/utils/files.h"
 #include <filesystem>
@@ -171,5 +172,6 @@ TEST(BloomFilterTest, ComprehensiveTest) {
 
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
+  init_spdlog_file();
   return RUN_ALL_TESTS();
 }

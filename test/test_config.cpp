@@ -1,4 +1,5 @@
 #include "../include/config/config.h"
+#include "../include/logger/logger.h"
 #include <gtest/gtest.h>
 
 TEST(ConfigTest, BasicTest) {
@@ -11,5 +12,6 @@ TEST(ConfigTest, BasicTest) {
 
 int main(int argc, char **argv) {
   testing::InitGoogleTest(&argc, argv);
+  init_spdlog_file();
   return RUN_ALL_TESTS();
 }

@@ -1,5 +1,6 @@
 #include "../include/block/block.h"
 #include "../include/block/block_cache.h"
+#include "../include/logger/logger.h"
 #include <gtest/gtest.h>
 #include <memory>
 #include <vector>
@@ -94,5 +95,6 @@ TEST_F(BlockCacheTest, HitRate) {
 
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
+  init_spdlog_file();
   return RUN_ALL_TESTS();
 }

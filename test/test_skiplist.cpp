@@ -1,3 +1,4 @@
+#include "../include/logger/logger.h"
 #include "../include/skiplist/skiplist.h"
 #include <algorithm>
 #include <atomic>
@@ -485,5 +486,6 @@ TEST(SkipListTest, TransactionId) {
 
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
+  init_spdlog_file();
   return RUN_ALL_TESTS();
 }

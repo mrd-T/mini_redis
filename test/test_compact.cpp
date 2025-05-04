@@ -1,4 +1,5 @@
 #include "../include/consts.h"
+#include "../include/logger/logger.h"
 #include "../include/lsm/engine.h"
 #include <cstdlib>
 #include <filesystem>
@@ -77,5 +78,6 @@ TEST_F(CompactTest, Persistence) {
 
 int main(int argc, char **argv) {
   testing::InitGoogleTest(&argc, argv);
+  init_spdlog_file();
   return RUN_ALL_TESTS();
 }

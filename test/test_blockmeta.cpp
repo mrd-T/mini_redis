@@ -1,4 +1,5 @@
 #include "../include/block/blockmeta.h"
+#include "../include/logger/logger.h"
 #include <gtest/gtest.h>
 
 class BlockMetaTest : public ::testing::Test {
@@ -165,5 +166,6 @@ TEST_F(BlockMetaTest, OrderTest) {
 
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
+  init_spdlog_file();
   return RUN_ALL_TESTS();
 }

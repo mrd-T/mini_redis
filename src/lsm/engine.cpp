@@ -1,10 +1,12 @@
 #include "../../include/lsm/engine.h"
 #include "../../include/config/config.h"
 #include "../../include/consts.h"
+#include "../../include/logger/logger.h"
 #include "../../include/lsm/level_iterator.h"
 #include "../../include/sst/concact_iterator.h"
 #include "../../include/sst/sst.h"
 #include "../../include/sst/sst_iterator.h"
+#include "spdlog/spdlog.h"
 #include <algorithm>
 #include <cstddef>
 #include <filesystem>
@@ -16,6 +18,9 @@
 
 // *********************** LSMEngine ***********************
 LSMEngine::LSMEngine(std::string path) : data_dir(path) {
+  // 初始化日志
+  init_spdlog_file();
+
   // 初始化 block_cahce
   block_cache = std::make_shared<BlockCache>(
       TomlConfig::getInstance().getLsmBlockCacheCapacity(),
@@ -23,9 +28,15 @@ LSMEngine::LSMEngine(std::string path) : data_dir(path) {
 
   // 创建数据目录
   if (!std::filesystem::exists(path)) {
+    spdlog::info("LSMEngine--"
+                 "DB path ndo not exist. Creating data directory: {}",
+                 path);
     std::filesystem::create_directory(path);
   } else {
     // 如果目录存在，则检查是否有 sst 文件并加载
+    spdlog::info("LSMEngine--"
+                 "DB path exist. Loading data directory: {} ...",
+                 path);
     for (const auto &entry : std::filesystem::directory_iterator(path)) {
       if (!entry.is_regular_file()) {
         continue;
@@ -65,6 +76,9 @@ LSMEngine::LSMEngine(std::string path) : data_dir(path) {
       cur_max_level = std::max(level, cur_max_level); // 记录目前最大的 level
       std::string sst_path = get_sst_path(sst_id, level);
       auto sst = SST::open(sst_id, FileObj::open(sst_path, false), block_cache);
+      spdlog::info("LSMEngine--"
+                   "Loaded SST: {} successfully!",
+                   sst_path);
       ssts[sst_id] = sst;
 
       level_sst_ids[level].push_back(sst_id);
@@ -92,10 +106,18 @@ LSMEngine::get(const std::string &key, uint64_t tranc_id) {
   if (mem_res.is_valid()) {
     if (mem_res.get_value().size() > 0) {
       // 值存在且不为空（没有被删除）
+      spdlog::trace("LSMEngine--"
+                    "get({},{}): value = {}, tranc_id = {} "
+                    "returning from memtable",
+                    key, tranc_id, mem_res.get_value(), mem_res.get_tranc_id());
       return std::pair<std::string, uint64_t>{mem_res.get_value(),
                                               mem_res.get_tranc_id()};
     } else {
       // memtable返回的kv的value为空值表示被删除了
+      spdlog::trace("LSMEngine--"
+                    "get({},{}): key is deleted, returning "
+                    "from memtable",
+                    key, tranc_id);
       return std::nullopt;
     }
   }
@@ -111,10 +133,20 @@ LSMEngine::get(const std::string &key, uint64_t tranc_id) {
     if (sst_iterator != sst->end()) {
       if ((sst_iterator)->second.size() > 0) {
         // 值存在且不为空（没有被删除）
+        spdlog::trace("LSMEngine--"
+                      "get({},{}): value = {}, tranc_id = {} "
+                      "returning from l0 sst{}",
+                      key, tranc_id, sst_iterator->second,
+                      sst_iterator.get_tranc_id(), sst_id);
         return std::pair<std::string, uint64_t>{sst_iterator->second,
                                                 sst_iterator.get_tranc_id()};
       } else {
         // 空值表示被删除了
+        spdlog::trace("LSMEngine--"
+                      "get({},{}): key is deleted or do not "
+                      "exist , returning "
+                      "from l0 sst{}",
+                      key, tranc_id, sst_id);
         return std::nullopt;
       }
     }
@@ -135,10 +167,21 @@ LSMEngine::get(const std::string &key, uint64_t tranc_id) {
         if (sst_iterator.is_valid()) {
           if ((sst_iterator)->second.size() > 0) {
             // 值存在且不为空（没有被删除）
+            spdlog::trace("LSMEngine--"
+                          "get({},{}): value = {}, tranc_id = {} "
+                          "returning from l{} sst{}",
+                          key, tranc_id, sst_iterator->second,
+                          sst_iterator.get_tranc_id(), level, l_sst_ids[mid]);
+
             return std::pair<std::string, uint64_t>{
                 sst_iterator->second, sst_iterator.get_tranc_id()};
           } else {
             // 空值表示被删除了
+            spdlog::trace("LSMEngine--"
+                          "get({},{}): key is deleted or do not exist "
+                          "returning from l{} sst{}",
+                          key, tranc_id, level, l_sst_ids[mid]);
+
             return std::nullopt;
           }
         } else {
@@ -151,6 +194,11 @@ LSMEngine::get(const std::string &key, uint64_t tranc_id) {
       }
     }
   }
+
+  spdlog::trace("LSMEngine--"
+                "get({},{}): key is not exist, returning "
+                "after checking all ssts",
+                key, tranc_id);
 
   return std::nullopt;
 }
@@ -250,6 +298,11 @@ LSMEngine::sst_get_(const std::string &key, uint64_t tranc_id) {
     if (sst_iterator != sst->end()) {
       if ((sst_iterator)->second.size() > 0) {
         // 值存在且不为空（没有被删除）
+        // L0 SST 查询命中
+        spdlog::trace("LSMEngine--"
+                      "sst_get({}{}): found in l0 sst{}",
+                      key, tranc_id, sst_id);
+
         return std::pair<std::string, uint64_t>{sst_iterator->second,
                                                 sst_iterator.get_tranc_id()};
       } else {
@@ -274,6 +327,11 @@ LSMEngine::sst_get_(const std::string &key, uint64_t tranc_id) {
         if (sst_iterator.is_valid()) {
           if ((sst_iterator)->second.size() > 0) {
             // 值存在且不为空（没有被删除）
+            // 其他 Level SST 查询命中
+            spdlog::trace("LSMEngine--"
+                          "sst_get({}{}): found in l{} sst{}",
+                          key, tranc_id, level, sst_iterator.get_tranc_id());
+
             return std::pair<std::string, uint64_t>{
                 sst_iterator->second, sst_iterator.get_tranc_id()};
           } else {
@@ -291,12 +349,21 @@ LSMEngine::sst_get_(const std::string &key, uint64_t tranc_id) {
     }
   }
 
+  spdlog::trace("LSMEngine--"
+                "sst_get({}{}): key is not exist, returning "
+                "after checking all ssts",
+                key, tranc_id);
+
   return std::nullopt;
 }
 
 uint64_t LSMEngine::put(const std::string &key, const std::string &value,
                         uint64_t tranc_id) {
   memtable.put(key, value, tranc_id);
+  spdlog::trace("LSMEngine--"
+                "put({}, {}, {})"
+                "inserted into memtable",
+                key, value, tranc_id);
 
   // 如果 memtable 太大，需要刷新到磁盘
   if (memtable.get_total_size() >=
@@ -310,6 +377,11 @@ uint64_t LSMEngine::put_batch(
     const std::vector<std::pair<std::string, std::string>> &kvs,
     uint64_t tranc_id) {
   memtable.put_batch(kvs, tranc_id);
+
+  spdlog::trace("LSMEngine--"
+                "put_batch with {} keys inserted into memtable",
+                kvs.size());
+
   // 如果 memtable 太大，需要刷新到磁盘
   if (memtable.get_total_size() >=
       TomlConfig::getInstance().getLsmTolMemSizeLimit()) {
@@ -320,6 +392,12 @@ uint64_t LSMEngine::put_batch(
 uint64_t LSMEngine::remove(const std::string &key, uint64_t tranc_id) {
   // 在 LSM 中，删除实际上是插入一个空值
   memtable.remove(key, tranc_id);
+
+  spdlog::trace("LSMEngine--"
+                "remove({}, {}) marked as "
+                "deleted in memtable",
+                key, tranc_id);
+
   // 如果 memtable 太大，需要刷新到磁盘
   if (memtable.get_total_size() >=
       TomlConfig::getInstance().getLsmTolMemSizeLimit()) {
@@ -331,6 +409,11 @@ uint64_t LSMEngine::remove(const std::string &key, uint64_t tranc_id) {
 uint64_t LSMEngine::remove_batch(const std::vector<std::string> &keys,
                                  uint64_t tranc_id) {
   memtable.remove_batch(keys, tranc_id);
+
+  spdlog::trace("LSMEngine--"
+                "remove_batch with {} keys tagged into memtable",
+                keys.size());
+
   // 如果 memtable 太大，需要刷新到磁盘
   if (memtable.get_total_size() >=
       TomlConfig::getInstance().getLsmTolMemSizeLimit()) {
@@ -350,10 +433,14 @@ void LSMEngine::clear() {
         continue;
       }
       std::filesystem::remove(entry.path());
+
+      spdlog::info("LSMEngine--"
+                   "clear file {} successfully.",
+                   entry.path().string());
     }
   } catch (const std::filesystem::filesystem_error &e) {
     // 处理文件系统错误
-    std::cerr << "Error clearing directory: " << e.what() << std::endl;
+    spdlog::error("Error clearing directory: {}", e.what());
   }
 }
 
@@ -390,6 +477,10 @@ uint64_t LSMEngine::flush() {
   level_sst_ids[0].push_front(new_sst_id);
 
   // 返回新刷入的 sst 的最大的 tranc_id
+  spdlog::info("LSMEngine--"
+               "Flush: Memtable flushed to SST with new sst_id={}, level=0",
+               new_sst_id);
+
   return new_sst->get_tranc_id_range().second;
 }
 
@@ -417,6 +508,12 @@ LSMEngine::lsm_iters_monotony_predicate(
       if (!result.has_value()) {
         continue;
       }
+
+      spdlog::trace("LSMEngine--"
+                    "lsm_iters_monotony_predicate(tranc_id={}): find a range "
+                    "from l{} sst{}",
+                    tranc_id, sst_level, sst_id);
+
       auto [it_begin, it_end] = result.value();
       for (; it_begin != it_end && it_begin.is_valid(); ++it_begin) {
         // l0中, 这里越古老的sst的idx越小, 我们需要让新的sst优先在堆顶
@@ -475,6 +572,10 @@ void LSMEngine::full_compact(size_t src_level) {
     full_compact(src_level + 1);
   }
 
+  spdlog::debug("LSMEngine--"
+                "Compaction: Starting full compaction from level{} to level{}",
+                src_level, src_level + 1);
+
   // 获取源level和目标level的 sst_id
   auto old_level_id_x = level_sst_ids[src_level];
   auto old_level_id_y = level_sst_ids[src_level + 1];
@@ -509,6 +610,10 @@ void LSMEngine::full_compact(size_t src_level) {
   // 此处没必要reverse了
   std::sort(level_sst_ids[src_level + 1].begin(),
             level_sst_ids[src_level + 1].end());
+
+  spdlog::debug("LSMEngine--"
+                "Compaction: Finished compaction. New SSTs added at level{}",
+                src_level + 1);
 }
 
 std::vector<std::shared_ptr<SST>>
@@ -589,6 +694,12 @@ LSMEngine::gen_sst_from_iter(BaseIterator &iter, size_t target_sst_size,
       std::string sst_path = get_sst_path(sst_id, target_level);
       auto new_sst = new_sst_builder.build(sst_id, sst_path, this->block_cache);
       new_ssts.push_back(new_sst);
+
+      spdlog::debug("LSMEngine--"
+                    "Compaction: Generated new SST file with sst_id={}"
+                    "at level{}",
+                    sst_id, target_level);
+
       new_sst_builder = SSTBuilder(TomlConfig::getInstance().getLsmBlockSize(),
                                    true); // 重置builder
     }
@@ -598,6 +709,11 @@ LSMEngine::gen_sst_from_iter(BaseIterator &iter, size_t target_sst_size,
     std::string sst_path = get_sst_path(sst_id, target_level);
     auto new_sst = new_sst_builder.build(sst_id, sst_path, this->block_cache);
     new_ssts.push_back(new_sst);
+
+    spdlog::debug("LSMEngine--"
+                  "Compaction: Generated new SST file with sst_id={} "
+                  "at level{}",
+                  sst_id, target_level);
   }
 
   return new_ssts;
@@ -628,6 +744,9 @@ LSM::LSM(std::string path)
         engine->remove(record.getKey(), tranc_id);
       }
     }
+    spdlog::debug("LSMEngine--"
+                  "Recover: Recovered transaction with tranc_id={}",
+                  tranc_id);
   }
   tran_manager_->init_new_wal();
 }
@@ -715,5 +834,12 @@ LSM::lsm_iters_monotony_predicate(
 std::shared_ptr<TranContext>
 LSM::begin_tran(const IsolationLevel &isolation_level) {
   auto tranc_context = tran_manager_->new_tranc(isolation_level);
+
+  spdlog::info("LSM--"
+               "lsm_iters_monotony_predicate: Starting query for tranc_id={}",
+               tranc_context->tranc_id_);
+
   return tranc_context;
 }
+
+void LSM::set_log_level(const std::string &level) { reset_log_level(level); }

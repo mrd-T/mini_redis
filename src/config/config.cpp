@@ -1,7 +1,6 @@
 #include "../../include/config/config.h"
+#include "spdlog/spdlog.h"
 #include <toml.hpp>
-
-#include <filesystem>
 #include <iostream>
 
 // Private helper to set all default values
@@ -107,8 +106,7 @@ bool TomlConfig::loadFromFile(const std::string &filePath) {
     bloom_filter_expected_error_rate_ =
         bloom_config.at("BLOOM_FILTER_EXPECTED_ERROR_RATE").as_floating();
 
-    std::cout << "Configuration loaded successfully from " << filePath
-              << std::endl;
+    spdlog::info("Configuration loaded successfully from {}", filePath);
     return true;
 
   } catch (const std::exception &err) {
@@ -236,16 +234,16 @@ bool TomlConfig::saveToFile(const std::string &filePath) {
       std::string config_str = toml::format(config_value);
       outFile << config_str;
       outFile.close();
-      std::cout << "Configuration saved successfully to " << filePath
-                << std::endl;
+      spdlog::info("Configuration saved successfully to {}", filePath);
       return true;
     } else {
-      std::cerr << "Failed to open file for writing: " << filePath << std::endl;
+      spdlog::error("Failed to open file for writing: {}", filePath);
+
       return false;
     }
   } catch (const std::exception &err) {
-    std::cerr << "An error occurred while saving configuration to " << filePath
-              << ": " << err.what() << std::endl;
+    spdlog::error("An error occurred while saving configuration to {}: {}",
+                  filePath, err.what());
     return false;
   }
 }

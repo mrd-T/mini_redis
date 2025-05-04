@@ -2,6 +2,7 @@
 #include "../include/block/block_iterator.h"
 #include "../include/config/config.h"
 #include "../include/consts.h"
+#include "../include/logger/logger.h"
 #include <gtest/gtest.h>
 #include <iomanip>
 #include <memory>
@@ -413,5 +414,6 @@ TEST_F(BlockTest, TrancPredicateTest) {
 
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
+  init_spdlog_file();
   return RUN_ALL_TESTS();
 }

@@ -1,5 +1,6 @@
 #include "../include/config/config.h"
 #include "../include/consts.h"
+#include "../include/logger/logger.h"
 #include "../include/sst/sst.h"
 #include "../include/sst/sst_iterator.h"
 #include <filesystem>
@@ -241,5 +242,6 @@ TEST_F(SSTTest, LargeSSTPredicate) {
 
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
+  init_spdlog_file();
   return RUN_ALL_TESTS();
 }

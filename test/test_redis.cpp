@@ -1,3 +1,4 @@
+#include "../include/logger/logger.h"
 #include "../include/redis_wrapper/redis_wrapper.h"
 #include <gtest/gtest.h>
 #include <memory>
@@ -329,5 +330,6 @@ TEST_F(RedisCommandsTest, SetOperations) {
 }
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
+  init_spdlog_file();
   return RUN_ALL_TESTS();
 }

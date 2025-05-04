@@ -1,3 +1,4 @@
+#include "../include/logger/logger.h"
 #include "../include/wal/record.h"
 #include "../include/wal/wal.h"
 #include <filesystem>
@@ -155,5 +156,6 @@ TEST_F(WALTest, RecoverTest) {
 
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
+  init_spdlog_file();
   return RUN_ALL_TESTS();
 }

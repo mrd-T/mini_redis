@@ -1,5 +1,6 @@
 #include "../include/consts.h"
 #include "../include/iterator/iterator.h"
+#include "../include/logger/logger.h"
 #include "../include/memtable/memtable.h"
 #include <gtest/gtest.h>
 #include <string>
@@ -156,7 +157,7 @@ TEST(MemTableTest, IteratorComplexOperations) {
 
   // 第三批操作：混合操作
   memtable.put("key1", "value1_new", 0); // 重新插入被删除的key
-  memtable.remove("key3", 0); // 删除一个在第一个frozen table中的key
+  memtable.remove("key3", 0);            // 删除一个在第一个frozen table中的key
   memtable.put("key2", "value2_final", 0); // 再次更新key2
   memtable.put("key5", "value5", 0);       // 插入新key
 
@@ -404,5 +405,7 @@ TEST(MemTableTest, PreffixIter) {
 
 int main(int argc, char **argv) {
   testing::InitGoogleTest(&argc, argv);
+  init_spdlog_file();
+  // reset_log_level("trace"); // ! 慎用, 日志输出量非常大
   return RUN_ALL_TESTS();
 }

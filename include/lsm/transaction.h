@@ -18,6 +18,8 @@ enum class IsolationLevel {
   SERIALIZABLE
 };
 
+inline std::string isolation_level_to_string(const IsolationLevel &level);
+
 class LSMEngine;
 class TranManager;
 

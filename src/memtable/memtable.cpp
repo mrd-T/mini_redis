@@ -4,6 +4,7 @@
 #include "../../include/iterator/iterator.h"
 #include "../../include/skiplist/skiplist.h"
 #include "../../include/sst/sst.h"
+#include "spdlog/spdlog.h"
 #include <algorithm>
 #include <cstddef>
 #include <memory>
@@ -29,6 +30,8 @@ void MemTable::put_(const std::string &key, const std::string &value,
 
 void MemTable::put(const std::string &key, const std::string &value,
                    uint64_t tranc_id) {
+  spdlog::trace("MemTable--put({}, {}, {}) called", key, value, tranc_id);
+
   std::unique_lock<std::shared_mutex> lock1(cur_mtx);
   put_(key, value, tranc_id);
   if (current_table->get_size() >
@@ -36,12 +39,16 @@ void MemTable::put(const std::string &key, const std::string &value,
     // 冻结当前表还需要获取frozen_mtx的写锁
     std::unique_lock<std::shared_mutex> lock2(frozen_mtx);
     frozen_cur_table_();
+    spdlog::debug("MemTable--Current table size exceeded limit. Frozen and "
+                  "created new table.");
   }
 }
 
 void MemTable::put_batch(
     const std::vector<std::pair<std::string, std::string>> &kvs,
     uint64_t tranc_id) {
+  spdlog::trace("MemTable--put_batch with {} keys", kvs.size());
+
   std::unique_lock<std::shared_mutex> lock1(cur_mtx);
   for (auto &[k, v] : kvs) {
     put_(k, v, tranc_id);
@@ -51,6 +58,9 @@ void MemTable::put_batch(
     // 冻结当前表还需要获取frozen_mtx的写锁
     std::unique_lock<std::shared_mutex> lock2(frozen_mtx);
     frozen_cur_table_();
+
+    spdlog::debug("MemTable--Current table size exceeded limit after batch "
+                  "put. Frozen and created new table.");
   }
 }
 
@@ -81,6 +91,8 @@ SkipListIterator MemTable::frozen_get_(const std::string &key,
 }
 
 SkipListIterator MemTable::get(const std::string &key, uint64_t tranc_id) {
+  spdlog::trace("MemTable--get({}) called", key);
+
   // 先获取当前活跃表的锁
   std::shared_lock<std::shared_mutex> slock1(cur_mtx);
   auto cur_res = cur_get_(key, tranc_id);
@@ -94,10 +106,14 @@ SkipListIterator MemTable::get(const std::string &key, uint64_t tranc_id) {
   if (frozen_result.is_valid()) {
     return frozen_result;
   }
+
+  spdlog::trace("MemTable--get({}): key not found", key);
+
   return SkipListIterator{};
 }
 
 SkipListIterator MemTable::get_(const std::string &key, uint64_t tranc_id) {
+  spdlog::trace("MemTable--get_({}) called", key);
 
   auto cur_res = cur_get_(key, tranc_id);
   if (cur_res.is_valid()) {
@@ -114,6 +130,8 @@ SkipListIterator MemTable::get_(const std::string &key, uint64_t tranc_id) {
 std::vector<
     std::pair<std::string, std::optional<std::pair<std::string, uint64_t>>>>
 MemTable::get_batch(const std::vector<std::string> &keys, uint64_t tranc_id) {
+  spdlog::trace("MemTable--get_batch with {} keys", keys.size());
+
   std::vector<
       std::pair<std::string, std::optional<std::pair<std::string, uint64_t>>>>
       results;
@@ -178,11 +196,15 @@ MemTable::get_batch(const std::vector<std::string> &keys, uint64_t tranc_id) {
 }
 
 void MemTable::remove_(const std::string &key, uint64_t tranc_id) {
+  spdlog::trace("MemTable--remove_({}) called", key);
+
   // 删除的方式是写入空值
   current_table->put(key, "", tranc_id);
 }
 
 void MemTable::remove(const std::string &key, uint64_t tranc_id) {
+  spdlog::trace("MemTable--remove({}) called", key);
+
   std::unique_lock<std::shared_mutex> lock(cur_mtx);
   remove_(key, tranc_id);
   if (current_table->get_size() >
@@ -190,6 +212,8 @@ void MemTable::remove(const std::string &key, uint64_t tranc_id) {
     // 冻结当前表还需要获取frozen_mtx的写锁
     std::unique_lock<std::shared_mutex> lock2(frozen_mtx);
     frozen_cur_table_();
+    spdlog::debug("MemTable--Current table size exceeded limit after remove. "
+                  "Frozen and created new table.");
   }
 }
 
@@ -209,6 +233,8 @@ void MemTable::remove_batch(const std::vector<std::string> &keys,
 }
 
 void MemTable::clear() {
+  spdlog::info("MemTable--clear(): Clearing all tables");
+
   std::unique_lock<std::shared_mutex> lock1(cur_mtx);
   std::unique_lock<std::shared_mutex> lock2(frozen_mtx);
   frozen_tables.clear();
@@ -219,6 +245,9 @@ void MemTable::clear() {
 std::shared_ptr<SST>
 MemTable::flush_last(SSTBuilder &builder, std::string &sst_path, size_t sst_id,
                      std::shared_ptr<BlockCache> block_cache) {
+  spdlog::debug("MemTable--flush_last(): Starting to flush memtable to SST{}",
+                sst_id);
+
   // 由于 flush 后需要移除最老的 memtable, 因此需要加写锁
   std::unique_lock<std::shared_mutex> lock(frozen_mtx);
 
@@ -228,6 +257,9 @@ MemTable::flush_last(SSTBuilder &builder, std::string &sst_path, size_t sst_id,
   if (frozen_tables.empty()) {
     // 如果当前表为空，直接返回nullptr
     if (current_table->get_size() == 0) {
+      spdlog::debug(
+          "MemTable--flush_last(): Current table is empty, returning null");
+
       return nullptr;
     }
     // 将当前表加入到frozen_tables头部
@@ -251,16 +283,24 @@ MemTable::flush_last(SSTBuilder &builder, std::string &sst_path, size_t sst_id,
   }
   auto sst = builder.build(sst_id, sst_path, block_cache);
 
+  spdlog::info("MemTable--flush_last(): SST{} built successfully at '{}'",
+               sst_id, sst_path);
+
   return sst;
 }
 
 void MemTable::frozen_cur_table_() {
+  spdlog::trace("MemTable--frozen_cur_table_(): Freezing current table");
+
   frozen_bytes += current_table->get_size();
   frozen_tables.push_front(std::move(current_table));
   current_table = std::make_shared<SkipList>();
 }
 
 void MemTable::frozen_cur_table() {
+  spdlog::trace("MemTable--frozen_cur_table(): Acquiring locks and freezing "
+                "current table");
+
   std::unique_lock<std::shared_mutex> lock1(cur_mtx);
   std::unique_lock<std::shared_mutex> lock2(frozen_mtx);
   frozen_cur_table_();
@@ -320,6 +360,9 @@ HeapIterator MemTable::end() {
 
 HeapIterator MemTable::iters_preffix(const std::string &preffix,
                                      uint64_t tranc_id) {
+  spdlog::trace("MemTable--iters_preffix('{}', tranc_id={})", preffix,
+                tranc_id);
+
   std::shared_lock<std::shared_mutex> slock1(cur_mtx);
   std::shared_lock<std::shared_mutex> slock2(frozen_mtx);
   std::vector<SearchItem> item_vec;
@@ -337,6 +380,8 @@ HeapIterator MemTable::iters_preffix(const std::string &preffix,
     }
     item_vec.emplace_back(iter.get_key(), iter.get_value(), 0, 0,
                           iter.get_tranc_id());
+
+    spdlog::trace("MemTable--iters_preffix(): get range from curent table");
   }
 
   int table_idx = 1;
@@ -355,6 +400,10 @@ HeapIterator MemTable::iters_preffix(const std::string &preffix,
       }
       item_vec.emplace_back(iter.get_key(), iter.get_value(), table_idx, 0,
                             iter.get_tranc_id());
+
+      spdlog::trace(
+          "MemTable--iters_preffix(): get range from table{}",
+          table_idx);
     }
     table_idx++;
   }
@@ -365,6 +414,9 @@ HeapIterator MemTable::iters_preffix(const std::string &preffix,
 std::optional<std::pair<HeapIterator, HeapIterator>>
 MemTable::iters_monotony_predicate(
     uint64_t tranc_id, std::function<int(const std::string &)> predicate) {
+  spdlog::trace("MemTable--iters_monotony_predicate(tranc_id={}) called",
+                tranc_id);
+
   std::shared_lock<std::shared_mutex> slock1(cur_mtx);
   std::shared_lock<std::shared_mutex> slock2(frozen_mtx);
 
@@ -385,6 +437,9 @@ MemTable::iters_monotony_predicate(
       }
       item_vec.emplace_back(iter.get_key(), iter.get_value(), 0, 0,
                             iter.get_tranc_id());
+
+      spdlog::trace(
+          "MemTable--iters_monotony_predicate(): get range from curent table");
     }
   }
 
@@ -407,11 +462,18 @@ MemTable::iters_monotony_predicate(
         item_vec.emplace_back(iter.get_key(), iter.get_value(), table_idx, 0,
                               iter.get_tranc_id());
       }
+
+      spdlog::trace(
+          "MemTable--iters_monotony_predicate(): get range from table{}",
+          table_idx);
     }
     table_idx++;
   }
 
   if (item_vec.empty()) {
+    spdlog::trace(
+        "MemTable--iters_monotony_predicate(): No matching keys found");
+
     return std::nullopt;
   }
   return std::make_pair(HeapIterator(item_vec, tranc_id), HeapIterator{});

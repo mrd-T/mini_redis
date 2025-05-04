@@ -110,4 +110,7 @@ public:
   // 开启一个事务
   std::shared_ptr<TranContext>
   begin_tran(const IsolationLevel &isolation_level);
+
+  // 重设日志级别
+  void set_log_level(const std::string &level);
 };

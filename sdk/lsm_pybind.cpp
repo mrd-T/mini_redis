@@ -8,9 +8,9 @@ namespace py = pybind11;
 
 // 绑定 TwoMergeIterator 迭代器
 void bind_TwoMergeIterator(py::module &m) {
-  py::class_<TwoMergeIterator>(m, "TwoMergeIterator")
-      .def("__iter__", [](TwoMergeIterator &it) { return &it; })
-      .def("__next__", [](TwoMergeIterator &it) {
+  py::class_<toni_lsm::TwoMergeIterator>(m, "TwoMergeIterator")
+      .def("__iter__", [](toni_lsm::TwoMergeIterator &it) { return &it; })
+      .def("__next__", [](toni_lsm::TwoMergeIterator &it) {
         if (!it.is_valid())
           throw py::stop_iteration();
         auto kv = *it;
@@ -20,9 +20,9 @@ void bind_TwoMergeIterator(py::module &m) {
 }
 
 void bind_Level_Iterator(py::module &m) {
-  py::class_<Level_Iterator>(m, "Level_Iterator")
-      .def("__iter__", [](Level_Iterator &it) { return &it; })
-      .def("__next__", [](Level_Iterator &it) {
+  py::class_<toni_lsm::Level_Iterator>(m, "Level_Iterator")
+      .def("__iter__", [](toni_lsm::Level_Iterator &it) { return &it; })
+      .def("__next__", [](toni_lsm::Level_Iterator &it) {
         if (!it.is_valid())
           throw py::stop_iteration();
         auto kv = *it;
@@ -34,25 +34,25 @@ void bind_Level_Iterator(py::module &m) {
 // 绑定 TranContext 事务上下文
 
 // 提前声明 TranContext（如果头文件未包含）
-class TranContext;
+using TranContext = toni_lsm::TranContext;
 
 // 绑定 TranContext
 void bind_TranContext(py::module &m) {
   py::class_<TranContext, std::shared_ptr<TranContext>>(m, "TranContext")
-      .def("commit", &TranContext::commit,
+      .def("commit", &toni_lsm::TranContext::commit,
            py::arg("test_fail") = false) // 处理默认参数
-      .def("abort", &TranContext::abort)
-      .def("get", &TranContext::get)
-      .def("remove", &TranContext::remove)
-      .def("put", &TranContext::put);
+      .def("abort", &toni_lsm::TranContext::abort)
+      .def("get", &toni_lsm::TranContext::get)
+      .def("remove", &toni_lsm::TranContext::remove)
+      .def("put", &toni_lsm::TranContext::put);
 }
 
 void bind_IsolationLevel(py::module &m) {
-  py::enum_<IsolationLevel>(m, "IsolationLevel")
-      .value("READ_UNCOMMITTED", IsolationLevel::READ_UNCOMMITTED)
-      .value("READ_COMMITTED", IsolationLevel::READ_COMMITTED)
-      .value("REPEATABLE_READ", IsolationLevel::REPEATABLE_READ)
-      .value("SERIALIZABLE", IsolationLevel::SERIALIZABLE)
+  py::enum_<toni_lsm::IsolationLevel>(m, "IsolationLevel")
+      .value("READ_UNCOMMITTED", toni_lsm::IsolationLevel::READ_UNCOMMITTED)
+      .value("READ_COMMITTED", toni_lsm::IsolationLevel::READ_COMMITTED)
+      .value("REPEATABLE_READ", toni_lsm::IsolationLevel::REPEATABLE_READ)
+      .value("SERIALIZABLE", toni_lsm::IsolationLevel::SERIALIZABLE)
       .export_values();
 }
 
@@ -64,28 +64,28 @@ PYBIND11_MODULE(lsm_pybind, m) {
   bind_IsolationLevel(m);
 
   // 主类 LSM
-  py::class_<LSM>(m, "LSM")
+  py::class_<toni_lsm::LSM>(m, "LSM")
       .def(py::init<const std::string &>())
       // 基础操作
-      .def("put", &LSM::put, py::arg("key"), py::arg("value"),
+      .def("put", &toni_lsm::LSM::put, py::arg("key"), py::arg("value"),
            "Insert a key-value pair (bytes type)")
-      .def("get", &LSM::get, py::arg("key"),
+      .def("get", &toni_lsm::LSM::get, py::arg("key"),
            "Get value by key, returns None if not found")
-      .def("remove", &LSM::remove, py::arg("key"), "Delete a key")
+      .def("remove", &toni_lsm::LSM::remove, py::arg("key"), "Delete a key")
       // 批量操作
-      .def("put_batch", &LSM::put_batch, py::arg("kvs"),
+      .def("put_batch", &toni_lsm::LSM::put_batch, py::arg("kvs"),
            "Batch insert key-value pairs")
-      .def("remove_batch", &LSM::remove_batch, py::arg("keys"),
+      .def("remove_batch", &toni_lsm::LSM::remove_batch, py::arg("keys"),
            "Batch delete keys")
       // 迭代器
-      .def("begin", &LSM::begin, py::arg("tranc_id"),
+      .def("begin", &toni_lsm::LSM::begin, py::arg("tranc_id"),
            "Start an iterator with transaction ID")
-      .def("end", &LSM::end, "Get end iterator")
+      .def("end", &toni_lsm::LSM::end, "Get end iterator")
       // 事务
-      .def("begin_tran", &LSM::begin_tran, py::arg("isolation_level"),
+      .def("begin_tran", &toni_lsm::LSM::begin_tran, py::arg("isolation_level"),
            "Start a transaction")
       // 其他方法
-      .def("clear", &LSM::clear, "Clear all data") // ! Fix bugs
-      .def("flush", &LSM::flush, "Flush memory table to disk")
-      .def("flush_all", &LSM::flush_all, "Flush all pending data");
+      .def("clear", &toni_lsm::LSM::clear, "Clear all data") // ! Fix bugs
+      .def("flush", &toni_lsm::LSM::flush, "Flush memory table to disk")
+      .def("flush_all", &toni_lsm::LSM::flush_all, "Flush all pending data");
 }

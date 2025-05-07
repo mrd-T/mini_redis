@@ -5,6 +5,8 @@
 
 #include <memory>
 
+namespace toni_lsm {
+
 class TwoMergeIterator : public BaseIterator {
 private:
   std::shared_ptr<BaseIterator> it_a;
@@ -35,3 +37,4 @@ public:
 
   pointer operator->() const;
 };
+} // namespace toni_lsm

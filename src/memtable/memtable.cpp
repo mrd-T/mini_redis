@@ -15,6 +15,8 @@
 #include <utility>
 #include <vector>
 
+namespace toni_lsm {
+
 class BlockCache;
 
 // MemTable implementation using PIMPL idiom
@@ -401,9 +403,8 @@ HeapIterator MemTable::iters_preffix(const std::string &preffix,
       item_vec.emplace_back(iter.get_key(), iter.get_value(), table_idx, 0,
                             iter.get_tranc_id());
 
-      spdlog::trace(
-          "MemTable--iters_preffix(): get range from table{}",
-          table_idx);
+      spdlog::trace("MemTable--iters_preffix(): get range from table{}",
+                    table_idx);
     }
     table_idx++;
   }
@@ -478,3 +479,4 @@ MemTable::iters_monotony_predicate(
   }
   return std::make_pair(HeapIterator(item_vec, tranc_id), HeapIterator{});
 }
+} // namespace toni_lsm

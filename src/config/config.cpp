@@ -1,7 +1,9 @@
 #include "../../include/config/config.h"
 #include "spdlog/spdlog.h"
-#include <toml.hpp>
 #include <iostream>
+#include <toml.hpp>
+
+namespace toni_lsm {
 
 // Private helper to set all default values
 void TomlConfig::setDefaultValues() {
@@ -247,3 +249,4 @@ bool TomlConfig::saveToFile(const std::string &filePath) {
     return false;
   }
 }
+} // namespace toni_lsm

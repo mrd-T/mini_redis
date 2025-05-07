@@ -2,6 +2,8 @@
 #include <tuple>
 #include <vector>
 
+namespace toni_lsm {
+
 // *************************** SearchItem ***************************
 bool operator<(const SearchItem &a, const SearchItem &b) {
   if (a.key_ != b.key_) {
@@ -163,3 +165,4 @@ IteratorType HeapIterator::get_type() const {
 }
 
 uint64_t HeapIterator::get_tranc_id() const { return max_tranc_id_; }
+} // namespace toni_lsm

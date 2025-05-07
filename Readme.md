@@ -43,6 +43,8 @@ Here is a simple example demonstrating how to use the LSM Tree for basic key-val
 #include <iostream>
 #include <string>
 
+using namespace ::toni_lsm;
+
 int main() {
   // create lsm instance, data_dir is the directory to store data
   LSM lsm("example_data");

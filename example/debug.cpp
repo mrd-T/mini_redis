@@ -2,6 +2,8 @@
 #include <iostream>
 #include <string>
 
+using namespace ::toni_lsm;
+
 int main() {
   LSM lsm("test");
   // change the data manually

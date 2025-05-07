@@ -14,6 +14,8 @@
 #include <unordered_map>
 #include <utility>
 
+namespace toni_lsm {
+
 class BlockCache;
 class SST;
 class SSTBuilder;
@@ -45,8 +47,9 @@ public:
                  uint64_t tranc_id);
 
   SkipListIterator get(const std::string &key, uint64_t tranc_id);
-  std::vector<std::pair<std::string, std::optional<std::pair<std::string, uint64_t>>>>
-                    get_batch(const std::vector<std::string> &keys, uint64_t tranc_id);
+  std::vector<
+      std::pair<std::string, std::optional<std::pair<std::string, uint64_t>>>>
+  get_batch(const std::vector<std::string> &keys, uint64_t tranc_id);
   void remove(const std::string &key, uint64_t tranc_id);
   void remove_batch(const std::vector<std::string> &keys, uint64_t tranc_id);
 
@@ -74,3 +77,4 @@ private:
   std::shared_mutex frozen_mtx; // 冻结表的锁
   std::shared_mutex cur_mtx;    // 活跃表的锁
 };
+} // namespace toni_lsm

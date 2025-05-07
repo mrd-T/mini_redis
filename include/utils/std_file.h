@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+namespace toni_lsm {
 class StdFile {
 
 private:
@@ -44,3 +45,4 @@ public:
   // 删除文件
   bool remove();
 };
+} // namespace toni_lsm

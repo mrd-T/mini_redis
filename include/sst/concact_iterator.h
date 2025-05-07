@@ -5,6 +5,7 @@
 #include <memory>
 #include <vector>
 
+namespace toni_lsm {
 class ConcactIterator : public BaseIterator {
 private:
   SstIterator cur_iter;
@@ -29,3 +30,4 @@ public:
 
   pointer operator->() const;
 };
+} // namespace toni_lsm

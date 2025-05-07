@@ -12,6 +12,8 @@
 #include <thread>
 #include <vector>
 
+namespace toni_lsm {
+
 inline std::string isolation_level_to_string(const IsolationLevel &level) {
   switch (level) {
   case IsolationLevel::READ_UNCOMMITTED:
@@ -477,3 +479,4 @@ bool TranManager::write_to_wal(const std::vector<Record> &records) {
 //     write_tranc_id_file();
 //   }
 // }
+} // namespace toni_lsm

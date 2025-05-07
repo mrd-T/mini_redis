@@ -8,6 +8,8 @@
 #include <memory>
 #include <vector>
 
+using namespace ::toni_lsm;
+
 class BlockTest : public ::testing::Test {
 protected:
   // 预定义的编码数据

@@ -4,6 +4,8 @@
 #include <optional>
 #include <stdexcept>
 
+namespace toni_lsm {
+
 // predicate返回值:
 //   0: 谓词
 //   >0: 不满足谓词, 需要向右移动
@@ -212,3 +214,4 @@ SstIterator::merge_sst_iterator(std::vector<SstIterator> iter_vec,
   }
   return std::make_pair(it_begin, HeapIterator());
 }
+} // namespace toni_lsm

@@ -6,6 +6,8 @@
 // Include the necessary toml11 header
 // Assuming a common setup where you include the main header:
 
+namespace toni_lsm {
+
 class TomlConfig {
 private:
   std::string config_file_path_; // 记录配置文件路径
@@ -75,3 +77,4 @@ public:
   static const TomlConfig &
   getInstance(const std::string &config_path = "config.toml");
 };
+} // namespace toni_lsm

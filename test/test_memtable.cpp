@@ -7,6 +7,8 @@
 #include <utility>
 #include <vector>
 
+using namespace ::toni_lsm;
+
 // 测试基本的插入和查询操作
 TEST(MemTableTest, BasicOperations) {
   MemTable memtable;

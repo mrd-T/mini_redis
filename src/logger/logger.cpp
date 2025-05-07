@@ -1,6 +1,8 @@
 #include "spdlog/sinks/rotating_file_sink.h"
 #include "spdlog/spdlog.h"
 
+namespace toni_lsm {
+
 // 定义一个 once_flag
 // std::once_flag 是一个只能用在 std::call_once 中的标志变量
 std::once_flag spdlog_init_flag;
@@ -23,3 +25,4 @@ void reset_log_level(const std::string &level) {
 
   spdlog::set_level(log_level);
 }
+} // namespace toni_lsm

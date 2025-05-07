@@ -2,6 +2,8 @@
 #include "../include/logger/logger.h"
 #include <gtest/gtest.h>
 
+using namespace ::toni_lsm;
+
 TEST(ConfigTest, BasicTest) {
   // 编译后的单元测试位置为: build/linux/x86_64/debug/test_config
   // 而配置文件放在项目根目录

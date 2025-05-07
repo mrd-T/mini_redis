@@ -13,6 +13,8 @@
 #include <unordered_map>
 #include <vector>
 
+namespace toni_lsm {
+
 class Level_Iterator;
 
 class LSMEngine : public std::enable_shared_from_this<LSMEngine> {
@@ -114,3 +116,4 @@ public:
   // 重设日志级别
   void set_log_level(const std::string &level);
 };
+} // namespace toni_lsm

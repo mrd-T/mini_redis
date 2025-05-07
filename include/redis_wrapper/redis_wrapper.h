@@ -2,6 +2,7 @@
 #include "../lsm/engine.h"
 #include <memory>
 
+namespace toni_lsm {
 std::vector<std::string>
 get_fileds_from_hash_value(const std::optional<std::string> &field_list_opt);
 
@@ -86,8 +87,9 @@ private:
   // 哈希操作
   std::string redis_hset(const std::string &key, const std::string &field,
                          const std::string &value);
-  std::string redis_hset_batch(const std::string &key,
-                         std::vector<std::pair<std::string, std::string>> &field_value_pairs);
+  std::string redis_hset_batch(
+      const std::string &key,
+      std::vector<std::pair<std::string, std::string>> &field_value_pairs);
   std::string redis_hget(const std::string &key, const std::string &field);
   std::string redis_hdel(const std::string &key, const std::string &field);
   std::string redis_hkeys(const std::string &key);
@@ -116,3 +118,4 @@ private:
   std::string redis_scard(const std::string &key);
   std::string redis_smembers(const std::string &key);
 };
+} // namespace toni_lsm

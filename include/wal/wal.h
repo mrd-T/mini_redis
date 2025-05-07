@@ -13,6 +13,8 @@
 #include <thread>
 #include <vector>
 
+namespace toni_lsm {
+
 class WAL {
 public:
   WAL(const std::string &log_dir, size_t buffer_size,
@@ -48,3 +50,4 @@ protected:
   std::atomic<bool> stop_cleaner_;
   uint64_t clean_interval_;
 };
+} // namespace toni_lsm

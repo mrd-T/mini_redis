@@ -6,6 +6,8 @@
 #include <gtest/gtest.h>
 #include <iostream>
 
+using namespace ::toni_lsm;
+
 class CompactTest : public ::testing::Test {
 protected:
   void SetUp() override {

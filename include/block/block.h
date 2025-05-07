@@ -26,6 +26,7 @@ Refer to https://skyzh.github.io/mini-lsm/week1-03-block.html for memory layout
 
 */
 
+namespace toni_lsm {
 class BlockIterator;
 
 class Block : public std::enable_shared_from_this<Block> {
@@ -83,7 +84,8 @@ public:
 
   std::optional<
       std::pair<std::shared_ptr<BlockIterator>, std::shared_ptr<BlockIterator>>>
-  iters_preffix(uint64_t tranc_id,const std::string &preffix);
+  iters_preffix(uint64_t tranc_id, const std::string &preffix);
 
   BlockIterator end();
 };
+} // namespace toni_lsm

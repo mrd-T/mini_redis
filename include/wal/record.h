@@ -6,6 +6,8 @@
 #include <string>
 #include <vector>
 
+namespace toni_lsm {
+
 enum class OperationType {
   CREATE,
   COMMIT,
@@ -54,3 +56,4 @@ private:
   std::string value_;
   uint16_t record_len_;
 };
+} // namespace toni_lsm

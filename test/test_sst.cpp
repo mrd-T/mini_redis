@@ -6,6 +6,8 @@
 #include <filesystem>
 #include <gtest/gtest.h>
 
+using namespace ::toni_lsm;
+
 class SSTTest : public ::testing::Test {
 protected:
   void SetUp() override {

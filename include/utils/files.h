@@ -8,6 +8,8 @@
 #include <string>
 #include <vector>
 
+namespace toni_lsm {
+
 class FileObj {
 private:
   std::unique_ptr<StdFile> m_file;
@@ -65,3 +67,4 @@ public:
 
   bool sync();
 };
+} // namespace toni_lsm

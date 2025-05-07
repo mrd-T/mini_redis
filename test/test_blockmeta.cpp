@@ -2,6 +2,8 @@
 #include "../include/logger/logger.h"
 #include <gtest/gtest.h>
 
+using namespace ::toni_lsm;
+
 class BlockMetaTest : public ::testing::Test {
   friend class BlockMeta;
 

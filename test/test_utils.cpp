@@ -5,6 +5,8 @@
 #include <gtest/gtest.h>
 #include <random>
 
+using namespace ::toni_lsm;
+
 class FileTest : public ::testing::Test {
 protected:
   void SetUp() override {

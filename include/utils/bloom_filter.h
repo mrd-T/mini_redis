@@ -8,6 +8,8 @@
 #include <string>
 #include <vector>
 
+namespace toni_lsm {
+
 class BloomFilter {
 public:
   // 构造函数，初始化布隆过滤器
@@ -52,3 +54,4 @@ private:
 
   size_t hash(const std::string &key, size_t idx) const;
 };
+} // namespace toni_lsm

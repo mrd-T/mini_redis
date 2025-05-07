@@ -11,6 +11,8 @@
 #include <unordered_map>
 #include <vector>
 
+namespace toni_lsm {
+
 enum class IsolationLevel {
   READ_UNCOMMITTED,
   READ_COMMITTED,
@@ -94,3 +96,5 @@ private:
   std::map<uint64_t, std::shared_ptr<TranContext>> activeTrans_;
   FileObj tranc_id_file_;
 };
+
+} // namespace toni_lsm

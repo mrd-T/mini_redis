@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 
 using namespace testing;
+using namespace ::toni_lsm;
 
 class MockWAL : public WAL {
 public:

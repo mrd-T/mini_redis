@@ -3,6 +3,8 @@
 #include <iostream>
 #include <string>
 
+using namespace ::toni_lsm;
+
 int main() {
   // create lsm instance, data_dir is the directory to store data
   LSM lsm("example_data");

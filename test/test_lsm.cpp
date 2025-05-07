@@ -7,6 +7,8 @@
 #include <string>
 #include <unordered_map>
 
+using namespace ::toni_lsm;
+
 class LSMTest : public ::testing::Test {
 protected:
   void SetUp() override {

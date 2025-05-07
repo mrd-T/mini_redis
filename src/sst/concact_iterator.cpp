@@ -1,5 +1,7 @@
 #include "../../include/sst/concact_iterator.h"
 
+namespace toni_lsm {
+
 ConcactIterator::ConcactIterator(std::vector<std::shared_ptr<SST>> ssts,
                                  uint64_t tranc_id)
     : ssts(ssts), cur_iter(nullptr, tranc_id), cur_idx(0),
@@ -60,3 +62,4 @@ ConcactIterator::pointer ConcactIterator::operator->() const {
 std::string ConcactIterator::key() { return cur_iter.key(); }
 
 std::string ConcactIterator::value() { return cur_iter.value(); }
+} // namespace toni_lsm

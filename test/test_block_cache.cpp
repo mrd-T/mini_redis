@@ -5,6 +5,8 @@
 #include <memory>
 #include <vector>
 
+using namespace ::toni_lsm;
+
 class BlockCacheTest : public ::testing::Test {
 protected:
   void SetUp() override {

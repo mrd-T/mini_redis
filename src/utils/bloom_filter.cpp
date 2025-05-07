@@ -7,7 +7,9 @@
 #include <numeric>
 #include <string>
 
-BloomFilter::BloomFilter(){};
+namespace toni_lsm {
+
+BloomFilter::BloomFilter() {};
 
 // 构造函数，初始化布隆过滤器
 // expected_elements: 预期插入的元素数量
@@ -25,11 +27,11 @@ BloomFilter::BloomFilter(size_t expected_elements, double false_positive_rate)
   num_hashes_ =
       static_cast<size_t>(std::ceil(m / expected_elements * std::log(2)));
 
-// #ifdef LSM_DEBUG
-//   std::cout << "Calculated m: " << m << std::endl;
-//   std::cout << "Calculated num_bits_: " << num_bits_ << std::endl;
-//   std::cout << "Calculated num_hashes_: " << num_hashes_ << std::endl;
-// #endif
+  // #ifdef LSM_DEBUG
+  //   std::cout << "Calculated m: " << m << std::endl;
+  //   std::cout << "Calculated num_bits_: " << num_bits_ << std::endl;
+  //   std::cout << "Calculated num_hashes_: " << num_hashes_ << std::endl;
+  // #endif
 
   // 初始化位数组
   bits_.resize(num_bits_, false);
@@ -159,3 +161,4 @@ BloomFilter BloomFilter::decode(const std::vector<uint8_t> &data) {
 
   return bf;
 }
+} // namespace toni_lsm

@@ -6,8 +6,9 @@
 #include <tuple>
 #include <utility>
 
-// ************************ SkipListIterator ************************
+namespace toni_lsm {
 
+// ************************ SkipListIterator ************************
 BaseIterator &SkipListIterator::operator++() {
   if (current) {
     current = current->forward_[0];
@@ -471,3 +472,4 @@ void SkipList::print_skiplist() {
   }
   std::cout << std::endl;
 }
+} // namespace toni_lsm

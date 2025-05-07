@@ -7,6 +7,8 @@
 #include <iostream>
 #include <vector>
 
+namespace toni_lsm {
+
 // 从零开始的初始化流程
 WAL::WAL(const std::string &log_dir, size_t buffer_size,
          uint64_t max_finished_tranc_id, uint64_t clean_interval,
@@ -214,3 +216,4 @@ void WAL::reset_file() {
   // log_file_.~FileObj();
   log_file_ = FileObj::create_and_write(active_log_path_, {});
 }
+} // namespace toni_lsm

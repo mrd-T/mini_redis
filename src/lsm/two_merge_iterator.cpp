@@ -1,5 +1,7 @@
 #include "../../include/lsm/two_merge_iterator.h"
 
+namespace toni_lsm {
+
 TwoMergeIterator::TwoMergeIterator() {}
 
 TwoMergeIterator::TwoMergeIterator(std::shared_ptr<BaseIterator> it_a,
@@ -125,3 +127,4 @@ void TwoMergeIterator::update_current() const {
     current = std::make_shared<value_type>(**it_b);
   }
 }
+} // namespace toni_lsm

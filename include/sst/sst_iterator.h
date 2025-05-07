@@ -7,6 +7,8 @@
 #include <utility>
 #include <vector>
 
+namespace toni_lsm {
+
 class SstIterator;
 class SST;
 
@@ -64,3 +66,4 @@ public:
   static std::pair<HeapIterator, HeapIterator>
   merge_sst_iterator(std::vector<SstIterator> iter_vec, uint64_t tranc_id);
 };
+} // namespace toni_lsm

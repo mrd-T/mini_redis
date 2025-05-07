@@ -16,6 +16,8 @@
 #include <utility>
 #include <vector>
 
+namespace toni_lsm {
+
 // *********************** LSMEngine ***********************
 LSMEngine::LSMEngine(std::string path) : data_dir(path) {
   // 初始化日志
@@ -843,3 +845,4 @@ LSM::begin_tran(const IsolationLevel &isolation_level) {
 }
 
 void LSM::set_log_level(const std::string &level) { reset_log_level(level); }
+} // namespace toni_lsm

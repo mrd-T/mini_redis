@@ -6,6 +6,7 @@
 #include <mutex>
 #include <unordered_map>
 
+namespace toni_lsm {
 BlockCache::BlockCache(size_t capacity, size_t k)
     : capacity_(capacity), k_(k) {}
 
@@ -88,3 +89,4 @@ void BlockCache::update_access_count(std::list<CacheItem>::iterator it) {
                                 cache_list_greater_k, it);
   }
 }
+} // namespace toni_lsm

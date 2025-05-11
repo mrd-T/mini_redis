@@ -16,8 +16,8 @@ You can also join the QQ group 💬 for discussion:
 <img src="./doc/qrcode.jpg" height="400">
 
 ## 📚 New: Lab Course Released!
-
-We now offer a complete hands-on **step-by-step Lab course** designed for learners interested in building LSM-based storage engines from scratch.
+> We now offer a complete hands-on **step-by-step Lab course** designed for learners interested in building LSM-based storage engines from scratch.
+> Project production is not easy, please click star ⭐ to support us ❤️
 
 👉 [**Toni-LSM Lab Course**](https://tonixwd.github.io/toni-lsm/book/)
 

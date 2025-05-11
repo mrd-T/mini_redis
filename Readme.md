@@ -11,15 +11,17 @@
 
 The developing posts can be found in my [blog](https://tonixwd.github.io/categories/%E9%A1%B9%E7%9B%AE/) or [zhihu](https://www.zhihu.com/column/c_1867534978344161280). The is also a recorded video [Course](https://avo6166ew2u.feishu.cn/docx/LXmVdezdsoTBRaxC97WcHwGunOc).
 
-You can also join the QQ group 💬 for discussion: 
-
-<img src="./doc/qrcode.jpg" height="400">
-
 ## 📚 New: Lab Course Released!
 > We now offer a complete hands-on **step-by-step Lab course** designed for learners interested in building LSM-based storage engines from scratch.
+> 
 > Project production is not easy, please click star ⭐ to support us ❤️
+> 
+> 👉 [**Toni-LSM Lab Course**](https://tonixwd.github.io/toni-lsm/book/)
 
-👉 [**Toni-LSM Lab Course**](https://tonixwd.github.io/toni-lsm/book/)
+You can also join the QQ group 💬 for discussion: 
+
+<img src="./doc/qrcode.jpg" height="300">
+
 
 ## 📦 Build Configuration
 

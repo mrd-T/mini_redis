@@ -231,10 +231,10 @@ db.get("tomxx")
 We welcome contributions for developing SDKs in other programming languages.
 
 # 🤝 Contribute
-If you want to contribute to the project, please check the [issues](https://github.com/ToniXWD/toni-lsm/issues). Also, you can concat me by 📧 [xwdtoni@126.com](mailto:xwdtoni@126.com)
+If you want to contribute to the project, please check the [issues](https://github.com/ToniXWD/toni-lsm/issues). Also, you can concat me by [email📧](mailto:xwdtoni@126.com)
 
 ## Lab Construction
-I have a plan to make this project a step-to-step Lab like `CMU15445` or `MIT 6.824`. If you are interested in this project, please feel free to contact me by 📧 [xwdtoni@126.com](mailto:xwdtoni@126.com)
+I have a plan to make this project a step-to-step Lab like `CMU15445` or `MIT 6.824`. If you are interested in this project, please feel free to contact me by [email📧](mailto:xwdtoni@126.com)
 
 Besides, the branch `lab-dev` is a development branch for the lab construction.
 

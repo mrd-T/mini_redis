@@ -3,7 +3,13 @@ set_project("toni-lsm")
 set_version("0.0.1")
 set_languages("c++20")
 
-add_rules("mode.debug", "mode.release")
+add_rules("mode.debug", "mode.release", "mode.coverage")
+
+-- 在 coverage 模式下设置 flags
+if is_mode("coverage") then
+    add_cxxflags("--coverage")
+    add_ldflags("--coverage")
+end
 
 add_repositories("local-repo build")
 

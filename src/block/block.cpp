@@ -147,6 +147,7 @@ bool Block::add_entry(const std::string &key, const std::string &value,
 
   // 记录偏移
   offsets.push_back(old_size);
+
   return true;
 }
 

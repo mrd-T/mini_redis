@@ -85,11 +85,12 @@ bool TomlConfig::loadFromFile(const std::string &filePath) {
         redis_config.at("REDIS_HASH_VALUE_PREFFIX").as_string();
     redis_field_prefix_ = redis_config.at("REDIS_FIELD_PREFIX").as_string();
 
-    redis_field_separator_ =
-        redis_config.at("REDIS_FIELD_SEPARATOR").as_string()[0];
+    std::string field_sep =
+        redis_config.at("REDIS_FIELD_SEPARATOR").as_string();
+    std::string list_sep = redis_config.at("REDIS_LIST_SEPARATOR").as_string();
 
-    redis_list_separator_ =
-        redis_config.at("REDIS_LIST_SEPARATOR").as_string()[0];
+    char field_sep_char = field_sep.empty() ? ',' : field_sep[0];
+    char list_sep_char = list_sep.empty() ? ';' : list_sep[0];
 
     redis_sorted_set_prefix_ =
         redis_config.at("REDIS_SORTED_SET_PREFIX").as_string();

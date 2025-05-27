@@ -9,7 +9,7 @@
 
 namespace toni_lsm {
 
-BloomFilter::BloomFilter() {};
+BloomFilter::BloomFilter(){};
 
 // 构造函数，初始化布隆过滤器
 // expected_elements: 预期插入的元素数量

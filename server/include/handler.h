@@ -7,7 +7,8 @@
 
 using namespace ::toni_lsm;
 
-enum class OPS {
+enum class 
+OPS {
   // 测试操作
   PING,
   // IO操作

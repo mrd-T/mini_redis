@@ -74,7 +74,7 @@ LSMEngine::LSMEngine(std::string path) : data_dir(path) {
       // 加载SST文件, 初始化时需要加写锁
       std::unique_lock<std::shared_mutex> lock(ssts_mtx); // 写锁
 
-      next_sst_id = std::max(sst_id, next_sst_id);    // 记录目前最大的 sst_id
+      next_sst_id = std::max(sst_id, next_sst_id); // 记录目前最大的 sst_id
       cur_max_level = std::max(level, cur_max_level); // 记录目前最大的 level
       std::string sst_path = get_sst_path(sst_id, level);
       auto sst = SST::open(sst_id, FileObj::open(sst_path, false), block_cache);
@@ -564,7 +564,7 @@ Level_Iterator LSMEngine::begin(uint64_t tranc_id) {
 }
 
 Level_Iterator LSMEngine::end() { return Level_Iterator{}; }
-
+//-----------------------compact-----------------------------------------------------
 void LSMEngine::full_compact(size_t src_level) {
   // 将 src_level 的 sst 全体压缩到 src_level + 1
 

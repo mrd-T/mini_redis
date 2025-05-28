@@ -10,7 +10,15 @@ option(LSM_DEBUG "Enable debug mode" OFF)
 if(LSM_DEBUG)
     add_compile_definitions(LSM_DEBUG)
 endif()
+option(ENABLE_DEBUG_FEATURES "Enable debug logging and checks" OFF)
 
+if(ENABLE_DEBUG_FEATURES)
+    add_compile_definitions(
+        DEBUG_LOG_ENABLED=1
+        DEBUG_ASSERT_ENABLED=1
+    )
+    message(STATUS "Debug features enabled")
+endif()
 # 查找依赖包
 find_package(spdlog REQUIRED)
 find_package(toml11 REQUIRED)
@@ -80,7 +88,7 @@ install(TARGETS lsm_shared DESTINATION lib)
 
 # 示例程序
 add_executable(example example/main.cpp)
-target_link_libraries(example PRIVATE lsm_shared)
+target_link_libraries(example PRIVATE lsm_shared fmt::fmt)
 
 add_executable(debug example/debug.cpp)
 target_link_libraries(debug PRIVATE lsm_shared)

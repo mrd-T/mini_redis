@@ -4,6 +4,7 @@
 #include "../../include/iterator/iterator.h"
 #include "../../include/skiplist/skiplist.h"
 #include "../../include/sst/sst.h"
+#include "lsm/engine.h"
 #include "spdlog/spdlog.h"
 #include <algorithm>
 #include <cstddef>
@@ -27,7 +28,11 @@ MemTable::~MemTable() = default;
 
 void MemTable::put_(const std::string &key, const std::string &value,
                     uint64_t tranc_id) {
-  current_table->put(key, value, tranc_id);
+  bool flag = 0;
+  if (value.size() > valuemax) {
+    flag = 1;
+  }
+  current_table->put(key, flag, value, tranc_id);
 }
 
 void MemTable::put(const std::string &key, const std::string &value,
@@ -201,7 +206,7 @@ void MemTable::remove_(const std::string &key, uint64_t tranc_id) {
   spdlog::trace("MemTable--remove_({}) called", key);
 
   // 删除的方式是写入空值
-  current_table->put(key, "", tranc_id);
+  current_table->put(key, "", 0, tranc_id);
 }
 
 void MemTable::remove(const std::string &key, uint64_t tranc_id) {

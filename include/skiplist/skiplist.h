@@ -19,6 +19,7 @@ namespace toni_lsm {
 // ************************ SkipListNode ************************
 struct SkipListNode {
   std::string key_;   // 节点存储的键
+  bool flag;          // 标记是否是大数据
   std::string value_; // 节点存储的值
   uint64_t tranc_id_; // 事务 id
   std::vector<std::shared_ptr<SkipListNode>>
@@ -119,7 +120,8 @@ public:
 
   // 插入或更新键值对
   // 这里不对 tranc_id 进行检查，由上层保证 tranc_id 的合法性
-  void put(const std::string &key, const std::string &value, uint64_t tranc_id);
+  void put(const std::string &key, const bool &flag, const std::string &value,
+           uint64_t tranc_id);
 
   // 查找键对应的值
   // 事务 id 为0 表示没有开启事务

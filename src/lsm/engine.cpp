@@ -361,6 +361,9 @@ LSMEngine::sst_get_(const std::string &key, uint64_t tranc_id) {
 
 uint64_t LSMEngine::put(const std::string &key, const std::string &value,
                         uint64_t tranc_id) {
+  if (value.size() > valuemax) {
+    // 如果 value 太大, 则需要放入 vlog 中
+  }
   memtable.put(key, value, tranc_id);
   spdlog::trace("LSMEngine--"
                 "put({}, {}, {})"
@@ -791,6 +794,7 @@ LSM::get_batch(const std::vector<std::string> &keys) {
 
 void LSM::put(const std::string &key, const std::string &value) {
   auto tranc_id = tran_manager_->getNextTransactionId();
+  spdlog::debug("你好");
   engine->put(key, value, tranc_id);
 }
 

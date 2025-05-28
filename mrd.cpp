@@ -1,9 +1,7 @@
-#include <stdio.h>
-int func(int *p) {
-  int y = *p;
-  return y;
-}
-int main() {
-  int *p = NULL;
-  return func(p);
+
+#include <gtest/gtest.h>
+
+int main(int argc, char **argv) {
+  testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
 }

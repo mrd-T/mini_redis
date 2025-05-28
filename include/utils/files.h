@@ -12,10 +12,10 @@ namespace toni_lsm {
 
 class FileObj {
 private:
-  std::unique_ptr<StdFile> m_file;
   size_t m_size;
 
 public:
+  std::unique_ptr<StdFile> m_file;
   FileObj();
   ~FileObj();
 

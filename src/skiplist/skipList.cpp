@@ -68,8 +68,8 @@ int SkipList::random_level() {
 }
 
 // 插入或更新键值对
-void SkipList::put(const std::string &key, const std::string &value,
-                   uint64_t tranc_id) {
+void SkipList::put(const std::string &key, const bool &flag,
+                   const std::string &value, uint64_t tranc_id) {
   spdlog::trace("SkipList--put({}, {}, {})", key, value, tranc_id);
 
   std::vector<std::shared_ptr<SkipListNode>> update(max_level, nullptr);

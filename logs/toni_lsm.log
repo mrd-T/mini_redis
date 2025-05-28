@@ -1,0 +1,55 @@
+[2025-05-28 00:07:56.478] [Toni-Lsm] [info] spdlog initialized
+[2025-05-28 00:07:56.483] [Toni-Lsm] [info] Configuration loaded successfully from config.toml
+[2025-05-28 00:07:56.483] [Toni-Lsm] [info] LSMEngine--DB path ndo not exist. Creating data directory: example_data
+[2025-05-28 00:07:56.483] [Toni-Lsm] [info] TranManager--check_recover(): Starting recovery from WAL
+[2025-05-28 00:07:56.483] [Toni-Lsm] [info] TranManager--check_recover(): Recovered 0 transactions
+[2025-05-28 00:07:56.483] [Toni-Lsm] [info] TranManager--init_new_wal(): Cleaning up old WAL files
+[2025-05-28 00:07:56.483] [Toni-Lsm] [info] TranManager--init_new_wal(): New WAL initialized
+[2025-05-28 00:07:56.484] [Toni-Lsm] [debug] TranManager--new_tranc(): Creating new transaction with isolation level=2
+[2025-05-28 00:07:56.484] [Toni-Lsm] [debug] TranManager--new_tranc(): Created transaction ID=9 with isolation level=2
+[2025-05-28 00:07:56.484] [Toni-Lsm] [info] LSM--lsm_iters_monotony_predicate: Starting query for tranc_id=9
+[2025-05-28 00:07:56.484] [Toni-Lsm] [info] TranContext--commit(): Starting commit for transaction ID=9
+[2025-05-28 00:07:56.484] [Toni-Lsm] [info] TranContext--commit(): Transaction ID=9 committed successfully
+[2025-05-28 00:07:56.484] [Toni-Lsm] [info] MemTable--clear(): Clearing all tables
+[2025-05-28 00:07:56.484] [Toni-Lsm] [info] LSMEngine--clear file example_data/wal.0 successfully.
+[2025-05-28 00:07:56.484] [Toni-Lsm] [info] LSMEngine--clear file example_data/tranc_id successfully.
+[2025-05-28 00:31:05.032] [Toni-Lsm] [info] spdlog initialized
+[2025-05-28 00:31:05.061] [Toni-Lsm] [info] Configuration loaded successfully from config.toml
+[2025-05-28 00:31:05.062] [Toni-Lsm] [info] LSMEngine--DB path ndo not exist. Creating data directory: example_data
+[2025-05-28 00:31:05.067] [Toni-Lsm] [info] TranManager--check_recover(): Starting recovery from WAL
+[2025-05-28 00:31:05.069] [Toni-Lsm] [info] TranManager--check_recover(): Recovered 0 transactions
+[2025-05-28 00:31:05.070] [Toni-Lsm] [info] TranManager--init_new_wal(): Cleaning up old WAL files
+[2025-05-28 00:31:05.075] [Toni-Lsm] [info] TranManager--init_new_wal(): New WAL initialized
+[2025-05-28 00:31:05.076] [Toni-Lsm] [debug] 你好
+[2025-05-28 00:31:05.083] [Toni-Lsm] [debug] MemTable--flush_last(): Starting to flush memtable to SST0
+[2025-05-28 00:31:05.084] [Toni-Lsm] [debug] SkipList--flush(): Starting to flush skiplist data
+[2025-05-28 00:31:05.086] [Toni-Lsm] [debug] SkipList--flush(): Flushed 1 entries
+[2025-05-28 00:31:05.112] [Toni-Lsm] [info] MemTable--flush_last(): SST0 built successfully at 'example_data/sst_00000000000000000000000000000000.0'
+[2025-05-28 00:31:05.117] [Toni-Lsm] [info] LSMEngine--Flush: Memtable flushed to SST with new sst_id=0, level=0
+[2025-05-28 00:32:30.394] [Toni-Lsm] [info] spdlog initialized
+[2025-05-28 00:32:30.410] [Toni-Lsm] [info] Configuration loaded successfully from config.toml
+[2025-05-28 00:32:30.412] [Toni-Lsm] [info] LSMEngine--DB path exist. Loading data directory: example_data ...
+[2025-05-28 00:32:30.428] [Toni-Lsm] [info] LSMEngine--Loaded SST: example_data/sst_00000000000000000000000000000000.0 successfully!
+[2025-05-28 00:32:30.431] [Toni-Lsm] [info] TranManager--check_recover(): Starting recovery from WAL
+[2025-05-28 00:32:30.432] [Toni-Lsm] [info] TranManager--check_recover(): Recovered 0 transactions
+[2025-05-28 00:32:30.432] [Toni-Lsm] [info] TranManager--init_new_wal(): Cleaning up old WAL files
+[2025-05-28 00:32:30.437] [Toni-Lsm] [info] TranManager--init_new_wal(): New WAL initialized
+[2025-05-28 00:32:30.437] [Toni-Lsm] [debug] 你好
+[2025-05-28 00:32:30.439] [Toni-Lsm] [debug] MemTable--flush_last(): Starting to flush memtable to SST1
+[2025-05-28 00:32:30.440] [Toni-Lsm] [debug] SkipList--flush(): Starting to flush skiplist data
+[2025-05-28 00:32:30.440] [Toni-Lsm] [debug] SkipList--flush(): Flushed 1 entries
+[2025-05-28 00:32:30.453] [Toni-Lsm] [info] MemTable--flush_last(): SST1 built successfully at 'example_data/sst_00000000000000000000000000000001.0'
+[2025-05-28 00:32:30.454] [Toni-Lsm] [info] LSMEngine--Flush: Memtable flushed to SST with new sst_id=1, level=0
+[2025-05-28 00:35:41.884] [Toni-Lsm] [info] spdlog initialized
+[2025-05-28 00:35:41.921] [Toni-Lsm] [info] Configuration loaded successfully from config.toml
+[2025-05-28 00:35:41.922] [Toni-Lsm] [info] LSMEngine--DB path ndo not exist. Creating data directory: example_data
+[2025-05-28 00:35:41.926] [Toni-Lsm] [info] TranManager--check_recover(): Starting recovery from WAL
+[2025-05-28 00:35:41.929] [Toni-Lsm] [info] TranManager--check_recover(): Recovered 0 transactions
+[2025-05-28 00:35:41.930] [Toni-Lsm] [info] TranManager--init_new_wal(): Cleaning up old WAL files
+[2025-05-28 00:35:41.937] [Toni-Lsm] [info] TranManager--init_new_wal(): New WAL initialized
+[2025-05-28 00:35:41.937] [Toni-Lsm] [debug] 你好
+[2025-05-28 00:35:41.946] [Toni-Lsm] [debug] MemTable--flush_last(): Starting to flush memtable to SST0
+[2025-05-28 00:35:41.949] [Toni-Lsm] [debug] SkipList--flush(): Starting to flush skiplist data
+[2025-05-28 00:35:41.951] [Toni-Lsm] [debug] SkipList--flush(): Flushed 1 entries
+[2025-05-28 00:35:41.977] [Toni-Lsm] [info] MemTable--flush_last(): SST0 built successfully at 'example_data/sst_00000000000000000000000000000000.0'
+[2025-05-28 00:35:41.982] [Toni-Lsm] [info] LSMEngine--Flush: Memtable flushed to SST with new sst_id=0, level=0

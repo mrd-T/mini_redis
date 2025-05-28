@@ -1,62 +1,23 @@
-#include "../include/lsm/engine.h"
-#include "../include/lsm/level_iterator.h"
-#include <iostream>
-#include <string>
-
+#include "iostream"
+#include "spdlog/spdlog.h"
+#include "vstt/vlog_mgr.h"
+#include <memory>
 using namespace ::toni_lsm;
 
 int main() {
-  // create lsm instance, data_dir is the directory to store data
-  LSM lsm("example_data");
-
-  // put data
-  lsm.put("key1", "value1");
-  lsm.put("key2", "value2");
-  lsm.put("key3", "value3");
-
-  // Query data
-  auto value1 = lsm.get("key1");
-  if (value1.has_value()) {
-    std::cout << "key1: " << value1.value() << std::endl;
-  } else {
-    std::cout << "key1 not found" << std::endl;
-  }
-
-  // Update data
-  lsm.put("key1", "new_value1");
-  auto new_value1 = lsm.get("key1");
-  if (new_value1.has_value()) {
-    std::cout << "key1: " << new_value1.value() << std::endl;
-  } else {
-    std::cout << "key1 not found" << std::endl;
-  }
-
-  // delete data
-  lsm.remove("key2");
-  auto value2 = lsm.get("key2");
-  if (value2.has_value()) {
-    std::cout << "key2: " << value2.value() << std::endl;
-  } else {
-    std::cout << "key2 not found" << std::endl;
-  }
-
-  // iterator
-  std::cout << "All key-value pairs:" << std::endl;
-  // begin(id): id means transaction id, 0 means disable mvcc
-  for (auto it = lsm.begin(0); it != lsm.end(); ++it) {
-    std::cout << it->first << ": " << it->second << std::endl;
-  }
-
-  // transaction
-  auto tranc_hanlder = lsm.begin_tran(IsolationLevel::REPEATABLE_READ);
-  tranc_hanlder->put("xxx", "yyy");
-  tranc_hanlder->put("yyy", "xxx");
-  tranc_hanlder->commit();
-
-  auto res = lsm.get("xxx");
-  std::cout << "xxx: " << res.value() << std::endl;
-
-  lsm.clear();
-
+  std::shared_ptr<vlogManager> vlog_mgr = std::make_shared<vlogManager>();
+  auto vlog1 = vlog_mgr->get_new_vlog();
+  // std::cout << vlog1->file.m_file->file_.is_open();
+  // spdlog::info("vlogsize={}", vlog1->get_size());
+  vlog_mgr->add_vlog(vlog1);
+  // spdlog::info("vlogManager--add_vlog: Added vlog with id={}", vlog1->f);
+  vlog1->put_("Hello, Worldsss!sss", 1, 0);
+  auto value = vlog1->get_value_(0);
+  // std::cout << "Vlog value at offset 0: " << value << std::endl;
+  spdlog::info("Vlog value at offset 0: {}", value);
+  auto tranc_id = vlog1->get_tranc_id_at(0);
+  // std::cout << "Transaction ID at offset 0: " << tranc_id << std::endl;
+  spdlog::info("Transaction ID at offset 0: {}", tranc_id);
+  auto type = vlog1->get_type(0);
   return 0;
 }

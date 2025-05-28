@@ -1,5 +1,6 @@
 #include "../../include/utils/files.h"
 #include <cstring>
+#include <spdlog/spdlog.h>
 #include <stdexcept>
 
 namespace toni_lsm {
@@ -36,7 +37,7 @@ FileObj FileObj::create_and_write(const std::string &path,
 
   // 同步到磁盘
   file_obj.m_file->sync();
-
+  spdlog::info("Creating filesize: {}", file_obj.m_file->size());
   return std::move(file_obj);
 }
 
@@ -56,8 +57,9 @@ std::vector<uint8_t> FileObj::read_to_slice(size_t offset, size_t length) {
   if (offset + length > m_file->size()) {
     throw std::out_of_range("Read beyond file size");
   }
-
-  // 从w文件复制数据
+  // spdlog::info("Reading {} bytes from offset {}", length, offset);
+  // spdlog::info("File size is {}", m_file->size());
+  // // 从w文件复制数据
   auto result = m_file->read(offset, length);
 
   return result;
@@ -118,8 +120,11 @@ bool FileObj::write(size_t offset, std::vector<uint8_t> &buf) {
 
 // 追加到文件
 bool FileObj::append(std::vector<uint8_t> &buf) {
-  // 获取文件大小
+  // // 获取文件大小
+  // spdlog::info("Appending {} bytes to file", buf.size());
+  // spdlog::info("Current file size is {}", m_file->size());
   size_t file_size = m_file->size();
+  // spdlog::info("Creating filesize: {}", size());
 
   // 写入数据
   if (!m_file->write(file_size, buf.data(), buf.size())) {

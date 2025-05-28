@@ -10,10 +10,10 @@ namespace toni_lsm {
 class StdFile {
 
 private:
-  std::fstream file_;
   std::filesystem::path filename_;
 
 public:
+  std::fstream file_;
   StdFile() {}
   ~StdFile() {
     if (file_.is_open()) {

@@ -17,7 +17,8 @@ struct CacheItem {
   int sst_id;
   int block_id;
   std::shared_ptr<Block> cache_block;
-  uint64_t access_count; // 访问时间戳
+  // std::shared_ptr<VBlock> cache_vblock; // 用于存储 VBlock
+  uint64_t access_count;                // 访问时间戳
 };
 
 // 自定义哈希函数

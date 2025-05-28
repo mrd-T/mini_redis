@@ -14,7 +14,7 @@
 #include <vector>
 
 namespace toni_lsm {
-
+constexpr int valuemax = 1024; // 超过这个放入vlog
 class Level_Iterator;
 
 class LSMEngine : public std::enable_shared_from_this<LSMEngine> {

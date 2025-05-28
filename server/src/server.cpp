@@ -1,11 +1,11 @@
 #include "../../include/redis_wrapper/redis_wrapper.h"
 #include "../include/handler.h"
-#include </home/mrd/toni-lsm/build/release-install-cpp11/include/muduo/base/Logging.h>
-#include </home/mrd/toni-lsm/build/release-install-cpp11/include/muduo/net/EventLoop.h>
-#include </home/mrd/toni-lsm/build/release-install-cpp11/include/muduo/net/InetAddress.h>
-#include </home/mrd/toni-lsm/build/release-install-cpp11/include/muduo/net/TcpConnection.h>
 #include <cstddef>
 #include <iostream>
+#include <muduo/base/Logging.h>
+#include <muduo/net/EventLoop.h>
+#include <muduo/net/InetAddress.h>
+#include <muduo/net/TcpConnection.h>
 #include <muduo/net/TcpServer.h>
 #include <string>
 #include <unordered_map>

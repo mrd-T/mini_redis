@@ -4,7 +4,8 @@ project(toni-lsm VERSION 0.0.1 LANGUAGES CXX)
 # 设置C++标准
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -frtti")
 # 配置编译选项
 option(LSM_DEBUG "Enable debug mode" OFF)
 if(LSM_DEBUG)
@@ -23,7 +24,7 @@ endif()
 find_package(spdlog REQUIRED)
 find_package(toml11 REQUIRED)
 find_package(pybind11 REQUIRED)
-
+# find_package(GTest REQUIRED)
 # 包含目录
 include_directories(include)
 
@@ -92,11 +93,33 @@ target_link_libraries(example PRIVATE lsm_shared fmt::fmt)
 
 add_executable(debug example/debug.cpp)
 target_link_libraries(debug PRIVATE lsm_shared)
+include(FetchContent)
 
-# 服务器程序 - 设置 muduo 路径
-set(muduo_INCLUDE_DIR "/home/mrd/toni-lsm/build/release-install-cpp11/include")
-set(muduo_LIBRARY_DIR "/home/mrd/toni-lsm/build/release-install-cpp11/lib")
-
+# 使用 Gitee 镜像（国内加速）
+FetchContent_Declare(
+  googletest
+  GIT_REPOSITORY https://gitee.com/kang-jinci/googletest.git
+  GIT_TAG        main  # 或指定版本，如 v1.13.0
+)
+#测试
+FetchContent_MakeAvailable(googletest)
+add_executable(test_lsm testt/test_lsm.cpp)
+target_link_libraries(test_lsm 
+    PRIVATE 
+    lsm_shared      # 你的主库
+    gtest           # 替换 GTest::GTest
+    gtest_main      # 替换 GTest::Main
+    pthread         # 必须添加
+)
+add_executable(test_vlog testt/test_vlog.cpp)
+target_link_libraries(test_vlog 
+    PRIVATE 
+    lsm_shared      # 你的主库
+    gtest           # 替换 GTest::GTest
+    gtest_main      # 替换 GTest::Main
+    pthread         # 必须添加
+    fmt
+)
 # 添加 muduo 包含目录和链接目录
 include_directories(${muduo_INCLUDE_DIR})
 link_directories(${muduo_LIBRARY_DIR})

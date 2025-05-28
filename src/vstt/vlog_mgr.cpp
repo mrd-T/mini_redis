@@ -13,12 +13,13 @@ namespace toni_lsm {
 // 获取一个新的 Vlog
 std::shared_ptr<vlog> vlogManager::get_new_vlog() {
 
-  uint64_t vlog_id = vlogid_.fetch_add(1);
   FileObj file = FileObj::create_and_write(
-      "vlog_" + std::to_string(vlog_id) + ".vlog", std::vector<uint8_t>());
+      "data/vlog_" + std::to_string(vlogid_) + ".vlog", std::vector<uint8_t>());
   // std::cout << file.m_file->file_.is_open();
   // spdlog::info("是否打开: {}", file.m_file->file_.is_open());
-  return std::make_shared<vlog>(vlog_id, std::move(file));
+  auto p = std::make_shared<vlog>(vlogid_, std::move(file));
+  vlogid_.fetch_add(1);
+  return p;
 }
 // 将 vlog 添加到管理器中
 void vlogManager::add_vlog(std::shared_ptr<vlog> vlog) {

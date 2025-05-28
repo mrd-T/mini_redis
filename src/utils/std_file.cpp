@@ -23,7 +23,7 @@ bool StdFile::create(const std::string &filename, std::vector<uint8_t> &buf) {
   if (!buf.empty()) {
     write(0, buf.data(), buf.size());
   }
-  spdlog::info("Creating filesize: {}", size());
+  // spdlog::info("Creating filesize: {}", size());
 
   return true;
 }

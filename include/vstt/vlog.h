@@ -46,7 +46,8 @@ private:
     std::string data;
   };
 
-  uint64_t file_size = 0;
+  // uint64_t file_size = 0;
+  size_t vlog_id;
 
 public:
   FileObj file;
@@ -62,11 +63,11 @@ public:
   // uint64_t get_tranc_id(uint64_t offset);
   uint8_t get_type(uint64_t offset);
   // 插入value
-  void put_(const std::string &value, uint64_t tranc_id, uint64_t offset);
+  void put_(const std::string &value, uint64_t tranc_id, uint64_t &offset);
   Entry get_entry(uint64_t offset);
   uint64_t get_tranc_id_at(uint64_t offset);
   uint64_t get_size() const { return file.size(); } // 获取vlog的大小
-  size_t vlog_id;
+  uint64_t get_file_no() const { return vlog_id; }  // 获取vlog的文件编号
 };
 
 class vlogBuilder {

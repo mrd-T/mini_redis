@@ -29,7 +29,8 @@ public:
   // 获取事务id
   uint64_t get_tranc_id_(uint64_t vsstid, uint64_t offset);
 
-  std::atomic<uint64_t> vlogid_ = 1;
+  inline static std::atomic<uint64_t> vlogid_ = 0;
+  uint64_t get_size() { return vlogs_.size(); }
 
 private:
   std::vector<std::shared_ptr<vlog>> vlogs_; // 管理vsst

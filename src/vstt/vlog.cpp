@@ -18,11 +18,11 @@ uint64_t vlog::get_tranc_id_at(uint64_t offset) {
   return get_entry(offset).tranc_id;
 }
 uint8_t vlog::get_type(uint64_t offset) { return get_entry(offset).type; }
-void vlog::put_(const std::string &value, uint64_t tranc_id, uint64_t offset) {
+void vlog::put_(const std::string &value, uint64_t tranc_id, uint64_t &offset) {
   // 准备要写入的数据
   uint64_t vlen = value.size();
-  uint8_t type = 0; // 假设类型为0，你可以根据实际情况调整
-
+  uint8_t type = 0;     // 假设类型为0，你可以根据实际情况调整
+  offset = file.size(); // 获取当前文件大小作为偏移量
   // 写入长度字段
   std::vector<u_int8_t> data;
 
@@ -40,6 +40,7 @@ void vlog::put_(const std::string &value, uint64_t tranc_id, uint64_t offset) {
 }
 vlog::Entry vlog::get_entry(uint64_t offset) {
   std::vector<u_int8_t> data;
+
   size_t file_size = file.size();
   // 读取文件末尾的元数据块
   if (file_size < offset + sizeof(uint64_t) * 2 + sizeof(u_int8_t)) {
@@ -57,8 +58,12 @@ vlog::Entry vlog::get_entry(uint64_t offset) {
   memcpy(&vtranid, tranid.data(), sizeof(uint64_t));
   offset += sizeof(uint64_t) * 2 + sizeof(u_int8_t);
   data = file.read_to_slice(offset, vlen);
+  // spdlog::info(
+  //     "vlog get_entry: offset {}, tranc_id {}, type {}, value {} len={}",
+  //     offset, vtranid, vtype,
+  //     std::string(reinterpret_cast<const char *>(data.data()), vlen), vlen);
   return Entry{vtranid, vlen, vtype,
-               std::string(reinterpret_cast<const char *>(data.data()))};
+               std::string(reinterpret_cast<const char *>(data.data()), vlen)};
 }
 
 // vlog::

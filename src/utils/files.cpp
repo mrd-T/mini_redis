@@ -37,7 +37,7 @@ FileObj FileObj::create_and_write(const std::string &path,
 
   // 同步到磁盘
   file_obj.m_file->sync();
-  spdlog::info("Creating filesize: {}", file_obj.m_file->size());
+  // spdlog::info("Creating filesize: {}", file_obj.m_file->size());
   return std::move(file_obj);
 }
 

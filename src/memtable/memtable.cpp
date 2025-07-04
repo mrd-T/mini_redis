@@ -62,7 +62,24 @@ namespace toni_lsm
       const std::vector<std::pair<std::string, std::string>> &kvs,
       uint64_t tranc_id)
   {
+    spdlog::trace("MemTable--put_batch with {} keys", kvs.size());
+
+    std::unique_lock<std::shared_mutex> lock1(cur_mtx);
+    for (auto &[k, v] : kvs)
+    {
+      put_(k, v, tranc_id);
     }
+    if (current_table->get_size() >
+        TomlConfig::getInstance().getLsmPerMemSizeLimit())
+    {
+      // 冻结当前表还需要获取frozen_mtx的写锁
+      std::unique_lock<std::shared_mutex> lock2(frozen_mtx);
+      frozen_cur_table_();
+
+      spdlog::debug("MemTable--Current table size exceeded limit after batch "
+                    "put. Frozen and created new table.");
+    }
+  }
 
   SkipListIterator MemTable::cur_get_(const std::string &key, uint64_t tranc_id)
   {

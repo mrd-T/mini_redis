@@ -11,7 +11,7 @@ public:
   std::string get_value_from_vlog(std::string key, bool flag,
                                   std::string value) {
     uint64_t FileNo = std::stoull(value.substr(0, 10));
-    uint64_t offset = std::stoull(value.substr(10, 17));
+    uint64_t offset = std::stoull(value.substr(10, 20));
 
     return vlog_mgr_->get_value_(FileNo, offset);
   }

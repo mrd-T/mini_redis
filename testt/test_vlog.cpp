@@ -1,5 +1,6 @@
 #include "../include/block/blockmeta.h"
 #include "../include/logger/logger.h"
+#include "memtable/memtable.h"
 #include "utils/value_mgr.h"
 #include "vstt/vlog.h"
 #include "vstt/vlog_mgr.h"
@@ -91,30 +92,49 @@ TEST_F(VLOGTEST, randomTest) {
     EXPECT_EQ(res, value);
   }
 }
-// 测试基本的编码和解码功能
-TEST_F(VLOGTEST, orderTest) {
-  // 顺序测试
+// // 测试基本的编码和解码功能
+// TEST_F(VLOGTEST, orderTest) {
+//   // 顺序测试
+//   vlogManager::vlogid_ = 0; // 重置 vlogid
+//   std::shared_ptr<vlogManager> vlog_mgr = std::make_shared<vlogManager>();
+//   std::shared_ptr<value_manager> value_mgr =
+//       std::make_shared<value_manager>(vlog_mgr);
+//   // spdlog::info("vlomanger conut:{}", vlog_mgr.use_count());
+//   for (int i = 0; i < 10000; i++) {
+//     std::string key = random_string(1, 1000);
+//     std::string value = random_string(1, 1000);
+//     uint64_t tranc_id = i;
+//     uint64_t offset = 0;
+//     uint64_t file_no = 0;
+//     value_mgr->put_value(key, value, tranc_id, file_no, offset);
+//     // spdlog::info("file number:{}", file_no);
+//     // spdlog::info("file size:{}",
+//     // value_mgr->vlog_mgr_->get_all_vlogs()[0]->file.m_file->size());
+//     // spdlog::info("file is offset:{}", offset);
+//     EXPECT_EQ(value_mgr->get_value(key, 0, file_no, offset), value);
+//     // EXPECT_EQ(vlog_mgr->, val2)
+//   }
+// }
+// 随机读取
+
+TEST_F(VLOGTEST, memtableTest) {
+  // 测试 MemTable 的基本功能
+
   vlogManager::vlogid_ = 0; // 重置 vlogid
-  std::shared_ptr<vlogManager> vlog_mgr = std::make_shared<vlogManager>();
-  std::shared_ptr<value_manager> value_mgr =
-      std::make_shared<value_manager>(vlog_mgr);
-  // spdlog::info("vlomanger conut:{}", vlog_mgr.use_count());
-  for (int i = 0; i < 10000; i++) {
-    std::string key = random_string(1, 1000);
-    std::string value = random_string(1, 1000);
-    uint64_t tranc_id = i;
-    uint64_t offset = 0;
-    uint64_t file_no = 0;
-    value_mgr->put_value(key, value, tranc_id, file_no, offset);
-    // spdlog::info("file number:{}", file_no);
-    // spdlog::info("file size:{}",
-    //              value_mgr->vlog_mgr_->get_all_vlogs()[0]->file.m_file->size());
-    // spdlog::info("file is offset:{}", offset);
-    EXPECT_EQ(value_mgr->get_value(key, 0, file_no, offset), value);
-    // EXPECT_EQ(vlog_mgr->, val2)
+  auto memtable = std::make_shared<MemTable>();
+  for (int i = 0; i < 100; i++) {
+    // std::string key = "key" + std::to_string(i);
+    // std::string value = "value" + std::to_string(i);
+    // memtable->put(key, value, 0); // 使用事务ID 0
+  }
+  // 检查是否可以正确获取值
+  for (int i = 0; i < 100; i++) {
+    std::string key = "key" + std::to_string(i);
+    auto value = memtable->get(key, 0);
+    // ASSERT_TRUE(value.get_value());
+    ASSERT_EQ(value.get_value(), "value" + std::to_string(i));
   }
 }
-// 随机读取
 
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);

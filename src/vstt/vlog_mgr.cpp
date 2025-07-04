@@ -3,6 +3,7 @@
 #include "vstt/vlog.h"
 #include <atomic>
 #include <cstdint>
+#include <cstdio>
 #include <memory>
 #include <mutex>
 #include <spdlog/spdlog.h>
@@ -14,12 +15,20 @@ namespace toni_lsm {
 std::shared_ptr<vlog> vlogManager::get_new_vlog() {
 
   FileObj file = FileObj::create_and_write(
-      "data/vlog_" + std::to_string(vlogid_) + ".vlog", std::vector<uint8_t>());
+      "test_lsm_data/vlog_" + std::to_string(vlogid_) + ".vlog",
+      std::vector<uint8_t>());
   // std::cout << file.m_file->file_.is_open();
   // spdlog::info("是否打开: {}", file.m_file->file_.is_open());
   auto p = std::make_shared<vlog>(vlogid_, std::move(file));
   vlogid_.fetch_add(1);
   return p;
+}
+void vlogManager::open_vlog(const std ::string &path, uint64_t vlog_it) {
+  FileObj file = FileObj::create_and_write(path, std::vector<uint8_t>());
+  // std::cout << file.m_file->file_.is_open();
+  // spdlog::info("是否打开: {}", file.m_file->file_.is_open());
+  auto p = std::make_shared<vlog>(vlogid_, std::move(file));
+  add_vlog(p);
 }
 // 将 vlog 添加到管理器中
 void vlogManager::add_vlog(std::shared_ptr<vlog> vlog) {

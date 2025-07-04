@@ -42,7 +42,8 @@ public:
   MemTable();
   ~MemTable();
 
-  void put(const std::string &key, const std::string &value, uint64_t tranc_id);
+  void put(const std::string &key, const std::string &value, bool flag,
+           uint64_t tranc_id);
   void put_batch(const std::vector<std::pair<std::string, std::string>> &kvs,
                  uint64_t tranc_id);
 

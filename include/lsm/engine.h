@@ -5,6 +5,7 @@
 #include "compact.h"
 #include "transaction.h"
 #include "two_merge_iterator.h"
+#include "utils/value_mgr.h"
 #include <cstddef>
 #include <deque>
 #include <map>
@@ -12,9 +13,8 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
-
 namespace toni_lsm {
-constexpr int valuemax = 1024; // 超过这个放入vlog
+// constexpr int valuemax = 1024; // 超过这个放入vlog
 class Level_Iterator;
 
 class LSMEngine : public std::enable_shared_from_this<LSMEngine> {
@@ -27,6 +27,7 @@ public:
   std::shared_ptr<BlockCache> block_cache;
   size_t next_sst_id = 0;
   size_t cur_max_level = 0;
+  std::shared_ptr<value_manager> value_mgr_; // 管理大数据
 
 public:
   LSMEngine(std::string path);

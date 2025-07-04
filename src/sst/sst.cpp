@@ -234,8 +234,8 @@ void SSTBuilder::add(const std::string &key, const std::string &value,
 
   bool force_write = key == last_key;
   // 连续出现相同的 key 必须位于 同一个 block 中
-
-  if (block.add_entry(key, value, tranc_id, force_write)) {
+  bool flag = 1;
+  if (block.add_entry(key, flag, value, tranc_id, force_write)) {
     // block 满足容量限制, 插入成功
     last_key = key;
     return;
@@ -243,7 +243,7 @@ void SSTBuilder::add(const std::string &key, const std::string &value,
 
   finish_block(); // 将当前 block 写入
 
-  block.add_entry(key, value, tranc_id, false);
+  block.add_entry(key, flag, value, tranc_id, false);
   first_key = key;
   last_key = key; // 更新最后一个key
 }

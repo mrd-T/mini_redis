@@ -49,7 +49,7 @@ uint64_t SkipListIterator::get_tranc_id() const { return current->tranc_id_; }
 // ************************ SkipList ************************
 // 构造函数
 SkipList::SkipList(int max_lvl) : max_level(max_lvl), current_level(1) {
-  head = std::make_shared<SkipListNode>("", "", max_level, 0);
+  head = std::make_shared<SkipListNode>("", "", max_level, 0, 0);
   dis_01 = std::uniform_int_distribution<>(0, 1);
   dis_level = std::uniform_int_distribution<>(0, (1 << max_lvl) - 1);
   gen = std::mt19937(std::random_device()());
@@ -77,7 +77,7 @@ void SkipList::put(const std::string &key, const bool &flag,
   // 先创建一个新节点
   int new_level = std::max(random_level(), current_level);
   auto new_node =
-      std::make_shared<SkipListNode>(key, value, new_level, tranc_id);
+      std::make_shared<SkipListNode>(key, value, new_level, tranc_id, flag);
 
   // std::unique_lock<std::shared_mutex> lock(rw_mutex);
   auto current = head;
@@ -267,7 +267,7 @@ size_t SkipList::get_size() {
 // 清空跳表，释放内存
 void SkipList::clear() {
   // std::unique_lock<std::shared_mutex> lock(rw_mutex);
-  head = std::make_shared<SkipListNode>("", "", max_level, 0);
+  head = std::make_shared<SkipListNode>("", "", max_level, 0, 0);
   size_bytes = 0;
 }
 

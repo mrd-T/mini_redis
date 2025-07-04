@@ -41,6 +41,7 @@ struct SearchItem {
   std::string key_;
   std::string value_;
   uint64_t tranc_id_;
+  bool flag;
   int idx_;
   int level_; // 来自sst的level
 

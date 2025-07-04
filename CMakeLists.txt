@@ -41,7 +41,7 @@ file(GLOB WAL_SOURCES "src/wal/*.cpp")
 file(GLOB LSM_SOURCES "src/lsm/*.cpp")
 file(GLOB REDIS_SOURCES "src/redis_wrapper/*.cpp")
 file(GLOB SERVER_SOURCES "server/src/*.cpp")
-
+file(GLOB VSTT_SOURCES "server/vstt/*.cpp")
 # 定义所有静态库目标
 add_library(logger STATIC ${LOGGER_SOURCES})
 target_link_libraries(logger PRIVATE spdlog::spdlog)
@@ -127,18 +127,19 @@ link_directories(${muduo_LIBRARY_DIR})
 # 添加服务器可执行文件
 add_executable(server ${SERVER_SOURCES})
 target_link_libraries(server PRIVATE
+    lsm_shared
     redis
     muduo_net
     muduo_base
     pthread
 )
 
-# Python绑定
-pybind11_add_module(lsm_pybind sdk/lsm_pybind.cpp)
-target_link_libraries(lsm_pybind PRIVATE lsm_shared)
-set_target_properties(lsm_pybind PROPERTIES 
-    OUTPUT_NAME "lsm_pybind"
-    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
-)
-target_compile_definitions(lsm_pybind PRIVATE TONILSM_EXPORT=__attribute__$$visibility$\"default\"$$$)
-target_compile_options(lsm_pybind PRIVATE -fvisibility=hidden)
+# # Python绑定
+# pybind11_add_module(lsm_pybind sdk/lsm_pybind.cpp)
+# target_link_libraries(lsm_pybind PRIVATE lsm_shared)
+# set_target_properties(lsm_pybind PROPERTIES 
+#     OUTPUT_NAME "lsm_pybind"
+#     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+# )
+# target_compile_definitions(lsm_pybind PRIVATE TONILSM_EXPORT=__attribute__$$visibility$\"default\"$$$)
+# target_compile_options(lsm_pybind PRIVATE -fvisibility=hidden)

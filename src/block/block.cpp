@@ -109,18 +109,20 @@ size_t Block::get_offset_at(size_t idx) const {
   return offsets[idx];
 }
 
-bool Block::add_entry(const std::string &key, const std::string &value,
-                      uint64_t tranc_id, bool force_write) {
+bool Block::add_entry(const std::string &key, bool flag,
+                      const std::string &value, uint64_t tranc_id,
+                      bool force_write) {
   if (!force_write &&
-      (cur_size() + key.size() + value.size() + 3 * sizeof(uint16_t) +
-           sizeof(uint64_t) >
+      (cur_size() + sizeof(bool) + key.size() + value.size() +
+           3 * sizeof(uint16_t) + sizeof(uint64_t) >
        capacity) &&
       !offsets.empty()) {
     return false;
   }
-  // 计算entry大小：key长度(2B) + key + value长度(2B) + value
-  size_t entry_size = sizeof(uint16_t) + key.size() + sizeof(uint16_t) +
-                      value.size() + sizeof(uint64_t);
+  // 计算entry大小：key长度(2B) + key + flag(1b) +value长度(2B) + value +
+  // tranc_id(8B)
+  size_t entry_size = sizeof(uint16_t) + key.size() + sizeof(bool) +
+                      sizeof(uint16_t) + value.size() + sizeof(uint64_t);
   size_t old_size = data.size();
   data.resize(old_size + entry_size);
 
@@ -130,7 +132,6 @@ bool Block::add_entry(const std::string &key, const std::string &value,
 
   // 写入key
   memcpy(data.data() + old_size + sizeof(uint16_t), key.data(), key_len);
-
   // 写入value长度
   uint16_t value_len = value.size();
   memcpy(data.data() + old_size + sizeof(uint16_t) + key_len, &value_len,
@@ -144,6 +145,10 @@ bool Block::add_entry(const std::string &key, const std::string &value,
   memcpy(data.data() + old_size + sizeof(uint16_t) + key_len +
              sizeof(uint16_t) + value_len,
          &tranc_id, sizeof(uint64_t));
+  // 写入flag
+  memcpy(data.data() + old_size + old_size + sizeof(uint16_t) + key_len +
+             sizeof(uint16_t) + value_len + sizeof(uint64_t),
+         &flag, sizeof(bool));
 
   // 记录偏移
   offsets.push_back(old_size);
@@ -193,7 +198,26 @@ uint16_t Block::get_tranc_id_at(size_t offset) const {
   memcpy(&tranc_id, data.data() + tranc_id_pos, sizeof(uint64_t));
   return tranc_id;
 }
+bool Block::get_flag_at(size_t offset) const {
+  // 先获取key长度
+  uint16_t key_len;
+  memcpy(&key_len, data.data() + offset, sizeof(uint16_t));
 
+  // 计算value长度的位置
+  size_t value_len_pos = offset + sizeof(uint16_t) + key_len;
+  uint16_t value_len;
+  memcpy(&value_len, data.data() + value_len_pos, sizeof(uint16_t));
+
+  // 计算事务id的位置
+  size_t tranc_id_pos = value_len_pos + sizeof(uint16_t) + value_len;
+  uint64_t tranc_id;
+  memcpy(&tranc_id, data.data() + tranc_id_pos, sizeof(uint64_t));
+  size_t flag_pos = tranc_id_pos + sizeof(uint64_t);
+  bool flag;
+  memcpy(&flag, data.data() + flag_pos, sizeof(bool));
+  return flag;
+  // return tranc_id;
+}
 // 比较指定偏移量处的key与目标key
 int Block::compare_key_at(size_t offset, const std::string &target) const {
   std::string key = get_key_at(offset);
@@ -367,6 +391,7 @@ Block::Entry Block::get_entry_at(size_t offset) const {
   entry.key = get_key_at(offset);
   entry.value = get_value_at(offset);
   entry.tranc_id = get_tranc_id_at(offset);
+  entry.flag = get_flag_at(offset);
   return entry;
 }
 

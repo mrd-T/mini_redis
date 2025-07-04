@@ -27,8 +27,8 @@ struct SkipListNode {
   std::vector<std::weak_ptr<SkipListNode>>
       backward_; // 指向不同层级的下一个节点的指针数组
   SkipListNode(const std::string &k, const std::string &v, int level,
-               uint64_t tranc_id)
-      : key_(k), value_(v), forward_(level, nullptr),
+               uint64_t tranc_id,bool f)
+      : key_(k), flag(f),value_(v), forward_(level, nullptr),
         backward_(level, std::weak_ptr<SkipListNode>()), tranc_id_(tranc_id) {}
   void set_backward(int level, std::shared_ptr<SkipListNode> node) {
     backward_[level] = std::weak_ptr<SkipListNode>(node);
@@ -82,6 +82,7 @@ public:
   virtual bool is_valid() const override;
   std::string get_key() const;
   std::string get_value() const;
+  bool get_flag() const { return current->flag; }
   uint64_t get_tranc_id() const override;
 
 private:

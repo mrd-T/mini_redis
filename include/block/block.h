@@ -21,7 +21,7 @@ Refer to https://skyzh.github.io/mini-lsm/week1-03-block.html for memory layout
 ---------------------------------------------------------------------
 |                           Entry #1 |                          ... |
 --------------------------------------------------------------|-----|
-|key_len (2B)|key(keylen)|flag(1b)|val_len(2B)|val(vallen)|tranc_id(8B)| ... |
+|key_len (2B)|key(keylen)|val_len(2B)|val(vallen)|tranc_id(8B)|flag(1b) ... |
 ---------------------------------------------------------------------
 
 */
@@ -41,9 +41,11 @@ private:
     std::string key;
     std::string value;
     uint64_t tranc_id;
+    bool flag; // 是否是大数据
   };
   Entry get_entry_at(size_t offset) const;
   std::string get_key_at(size_t offset) const;
+  bool get_flag_at(size_t offset) const;
   std::string get_value_at(size_t offset) const;
   uint16_t get_tranc_id_at(size_t offset) const;
   int compare_key_at(size_t offset, const std::string &target) const;
@@ -63,7 +65,7 @@ public:
                                        bool with_hash = false);
   std::string get_first_key();
   size_t get_offset_at(size_t idx) const;
-  bool add_entry(const std::string &key, const std::string &value,
+  bool add_entry(const std::string &key, bool flag, const std::string &value,
                  uint64_t tranc_id, bool force_write);
   std::optional<std::string> get_value_binary(const std::string &key,
                                               uint64_t tranc_id);

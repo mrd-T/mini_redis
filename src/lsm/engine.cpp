@@ -7,8 +7,12 @@
 #include "../../include/sst/sst.h"
 #include "../../include/sst/sst_iterator.h"
 #include "spdlog/spdlog.h"
+// #include "vstt/value_mgr.h"
+#include "vstt/vlog.h"
+#include "vstt/vlog_mgr.h"
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <memory>
 #include <mutex>
@@ -96,6 +100,46 @@ LSMEngine::LSMEngine(std::string path) : data_dir(path) {
         std::reverse(sst_id_list.begin(), sst_id_list.end());
       }
     }
+    // vlog 处理
+    //  std::shared_ptr<value_manager>
+    std::shared_ptr<vlogManager> vlog_mgr = std::make_shared<vlogManager>();
+    std::shared_ptr<value_manager> value_mgr =
+        std::make_shared<value_manager>(vlog_mgr);
+
+    // 获取vlog
+    for (const auto &entry : std::filesystem::directory_iterator(path)) {
+      if (!entry.is_regular_file()) {
+        continue;
+      }
+
+      std::string filename = entry.path().filename().string();
+      // vlog文件名格式为:  vlog_id.vlog
+      if (!filename.starts_with("vlog_")) {
+        continue;
+      }
+
+      // 找到 . 的位置
+      size_t dot_pos = filename.find('.');
+      if (dot_pos == std::string::npos || dot_pos == filename.length() - 1) {
+        continue;
+      }
+      // 提取vlog ID
+      std::string id_str = filename.substr(5, dot_pos - 5); // 4 for "sst_"
+      if (id_str.empty()) {
+        continue;
+      }
+      size_t vlog_id = std::stoull(id_str);
+
+      // 加载vlog文件, 初始化时需要加写锁
+      std::unique_lock<std::shared_mutex> lock(ssts_mtx); // 写锁
+
+      // 记录目前最大的 vlog
+      vlogManager::vlogid_.store(
+          std::max(vlog_id,
+                   vlogManager::vlogid_.load(std::memory_order_relaxed)),
+          std::memory_order_relaxed);
+      value_mgr->vlog_mgr_->open_vlog(filename, vlog_id);
+    }
   }
 }
 
@@ -112,6 +156,12 @@ LSMEngine::get(const std::string &key, uint64_t tranc_id) {
                     "get({},{}): value = {}, tranc_id = {} "
                     "returning from memtable",
                     key, tranc_id, mem_res.get_value(), mem_res.get_tranc_id());
+      if (mem_res.get_flag() == 1) {
+        auto value = value_mgr_->get_value_from_vlog(key, mem_res.get_flag(),
+                                                     mem_res.get_value());
+        auto trans_id = mem_res.get_tranc_id();
+        return std::pair<std::string, uint64_t>{value, trans_id};
+      }
       return std::pair<std::string, uint64_t>{mem_res.get_value(),
                                               mem_res.get_tranc_id()};
     } else {
@@ -361,10 +411,17 @@ LSMEngine::sst_get_(const std::string &key, uint64_t tranc_id) {
 
 uint64_t LSMEngine::put(const std::string &key, const std::string &value,
                         uint64_t tranc_id) {
-  if (value.size() > valuemax) {
-    // 如果 value 太大, 则需要放入 vlog 中
-  }
-  memtable.put(key, value, tranc_id);
+  // if (value.size() > valuemax) {
+  //   // 如果 value 太大, 则需要放入 vlog 中
+  // }
+  uint64_t vlog_offset = 0;
+  uint64_t vlog_id = 0;
+  value_mgr_->put_value(key, value, tranc_id, vlog_id, vlog_offset);
+  std::string id_str = std::format("{:010}", vlog_id);
+  std::string offset_str = std::format("{:010}", vlog_offset);
+  // value = id_str + offset_str;
+  memtable.put(key, id_str + offset_str, 1, tranc_id);
+
   spdlog::trace("LSMEngine--"
                 "put({}, {}, {})"
                 "inserted into memtable",

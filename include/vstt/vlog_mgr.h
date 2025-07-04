@@ -30,6 +30,7 @@ public:
   uint64_t get_tranc_id_(uint64_t vsstid, uint64_t offset);
 
   inline static std::atomic<uint64_t> vlogid_ = 0;
+  void open_vlog(const std ::string &path, uint64_t vlog_id);
   uint64_t get_size() { return vlogs_.size(); }
 
 private:

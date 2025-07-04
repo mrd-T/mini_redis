@@ -10,6 +10,7 @@ namespace toni_lsm {
 //   0: 谓词
 //   >0: 不满足谓词, 需要向右移动
 //   <0: 不满足谓词, 需要向左移动
+//
 std::optional<std::pair<SstIterator, SstIterator>> sst_iters_monotony_predicate(
     std::shared_ptr<SST> sst, uint64_t tranc_id,
     std::function<int(const std::string &)> predicate) {
